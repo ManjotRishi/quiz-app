@@ -1,0 +1,1 @@
+/Users/manjotrishi/Documents/ReactNative/dailyQuizz/android/app/build/intermediates/cxx/Debug/1162594e/obj/arm64-v8a

@@ -1,0 +1,17 @@
+export const colors = {
+  deepPurple: '#6b3df7',
+  brightPurple: '#a35aff',
+  electricBlue: '#4f7dff',
+  pastelBlue: '#cfe1ff',
+  pastelPink: '#ffd6ff',
+  background: '#f5f6ff',
+  card: '#ffffff',
+  optionBorder: '#e2e3ff',
+  optionSelected: '#dfe4ff',
+  success: '#34c759',
+  danger: '#ff466a',
+  textDark: '#1b1b38',
+  textMuted: '#6a6f85',
+  gradientStart: '#6f33f5',
+  gradientEnd: '#8cd4ff',
+};
