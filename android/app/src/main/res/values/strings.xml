@@ -1,3 +1,4 @@
 <resources>
-    <string name="app_name">Daily Quizz</string>
+    <string name="app_name">Daily Jankari</string>
+    <string name="default_notification_channel_id">quiz_channel_heads_up_v6</string>
 </resources>

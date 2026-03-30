@@ -26,8 +26,13 @@ export const quizQuestions = [
   },
 ];
 
-export const INITIAL_TIME = 120;
-export const COLLECTION_NAME= "USER_DEV_TOKENS";
+export const INITIAL_TIME = 45;
+export const COLLECTION_NAME = "USER_DEV_TOKENS";
+export const GKCOLLECTION = "GK_QUESTIONS";
+export const ENGLISHQUIZZCOLLECTION = "ENG_QUESTIONS";
+export const CURRENTAFFAIRCOLLECTION = "CURRENT_AFFAIRS";
+export const PUZZLESCOLLECTION = "PUZZLES";
+export const LISTINGDOC = "LISTINGDOC";
 
 
 export const splashTexts = [

@@ -12,6 +12,30 @@ if(NOT "${NEW_GLOB}" STREQUAL "${OLD_GLOB}")
   file(TOUCH_NOCREATE "/Users/manjotrishi/Documents/ReactNative/dailyQuizz/android/app/.cxx/Debug/1162594e/arm64-v8a/CMakeFiles/cmake.verify_globs")
 endif()
 
+# react_codegen_SRCS at /Users/manjotrishi/Documents/ReactNative/dailyQuizz/node_modules/@react-native-community/netinfo/android/build/generated/source/codegen/jni/CMakeLists.txt:9 (file)
+file(GLOB NEW_GLOB LIST_DIRECTORIES true "/Users/manjotrishi/Documents/ReactNative/dailyQuizz/node_modules/@react-native-community/netinfo/android/build/generated/source/codegen/jni/*.cpp")
+set(OLD_GLOB
+  "/Users/manjotrishi/Documents/ReactNative/dailyQuizz/node_modules/@react-native-community/netinfo/android/build/generated/source/codegen/jni/RNCNetInfoSpec-generated.cpp"
+  )
+if(NOT "${NEW_GLOB}" STREQUAL "${OLD_GLOB}")
+  message("-- GLOB mismatch!")
+  file(TOUCH_NOCREATE "/Users/manjotrishi/Documents/ReactNative/dailyQuizz/android/app/.cxx/Debug/1162594e/arm64-v8a/CMakeFiles/cmake.verify_globs")
+endif()
+
+# react_codegen_SRCS at /Users/manjotrishi/Documents/ReactNative/dailyQuizz/node_modules/@react-native-community/netinfo/android/build/generated/source/codegen/jni/CMakeLists.txt:9 (file)
+file(GLOB NEW_GLOB LIST_DIRECTORIES true "/Users/manjotrishi/Documents/ReactNative/dailyQuizz/node_modules/@react-native-community/netinfo/android/build/generated/source/codegen/jni/react/renderer/components/RNCNetInfoSpec/*.cpp")
+set(OLD_GLOB
+  "/Users/manjotrishi/Documents/ReactNative/dailyQuizz/node_modules/@react-native-community/netinfo/android/build/generated/source/codegen/jni/react/renderer/components/RNCNetInfoSpec/ComponentDescriptors.cpp"
+  "/Users/manjotrishi/Documents/ReactNative/dailyQuizz/node_modules/@react-native-community/netinfo/android/build/generated/source/codegen/jni/react/renderer/components/RNCNetInfoSpec/EventEmitters.cpp"
+  "/Users/manjotrishi/Documents/ReactNative/dailyQuizz/node_modules/@react-native-community/netinfo/android/build/generated/source/codegen/jni/react/renderer/components/RNCNetInfoSpec/Props.cpp"
+  "/Users/manjotrishi/Documents/ReactNative/dailyQuizz/node_modules/@react-native-community/netinfo/android/build/generated/source/codegen/jni/react/renderer/components/RNCNetInfoSpec/ShadowNodes.cpp"
+  "/Users/manjotrishi/Documents/ReactNative/dailyQuizz/node_modules/@react-native-community/netinfo/android/build/generated/source/codegen/jni/react/renderer/components/RNCNetInfoSpec/States.cpp"
+  )
+if(NOT "${NEW_GLOB}" STREQUAL "${OLD_GLOB}")
+  message("-- GLOB mismatch!")
+  file(TOUCH_NOCREATE "/Users/manjotrishi/Documents/ReactNative/dailyQuizz/android/app/.cxx/Debug/1162594e/arm64-v8a/CMakeFiles/cmake.verify_globs")
+endif()
+
 # react_codegen_SRCS at /Users/manjotrishi/Documents/ReactNative/dailyQuizz/node_modules/react-native-gesture-handler/android/build/generated/source/codegen/jni/CMakeLists.txt:9 (file)
 file(GLOB NEW_GLOB LIST_DIRECTORIES true "/Users/manjotrishi/Documents/ReactNative/dailyQuizz/node_modules/react-native-gesture-handler/android/build/generated/source/codegen/jni/*.cpp")
 set(OLD_GLOB
@@ -30,6 +54,30 @@ set(OLD_GLOB
   "/Users/manjotrishi/Documents/ReactNative/dailyQuizz/node_modules/react-native-gesture-handler/android/build/generated/source/codegen/jni/react/renderer/components/rngesturehandler_codegen/Props.cpp"
   "/Users/manjotrishi/Documents/ReactNative/dailyQuizz/node_modules/react-native-gesture-handler/android/build/generated/source/codegen/jni/react/renderer/components/rngesturehandler_codegen/ShadowNodes.cpp"
   "/Users/manjotrishi/Documents/ReactNative/dailyQuizz/node_modules/react-native-gesture-handler/android/build/generated/source/codegen/jni/react/renderer/components/rngesturehandler_codegen/States.cpp"
+  )
+if(NOT "${NEW_GLOB}" STREQUAL "${OLD_GLOB}")
+  message("-- GLOB mismatch!")
+  file(TOUCH_NOCREATE "/Users/manjotrishi/Documents/ReactNative/dailyQuizz/android/app/.cxx/Debug/1162594e/arm64-v8a/CMakeFiles/cmake.verify_globs")
+endif()
+
+# react_codegen_SRCS at /Users/manjotrishi/Documents/ReactNative/dailyQuizz/node_modules/react-native-nitro-modules/android/build/generated/source/codegen/jni/CMakeLists.txt:9 (file)
+file(GLOB NEW_GLOB LIST_DIRECTORIES true "/Users/manjotrishi/Documents/ReactNative/dailyQuizz/node_modules/react-native-nitro-modules/android/build/generated/source/codegen/jni/*.cpp")
+set(OLD_GLOB
+  "/Users/manjotrishi/Documents/ReactNative/dailyQuizz/node_modules/react-native-nitro-modules/android/build/generated/source/codegen/jni/NitroModulesSpec-generated.cpp"
+  )
+if(NOT "${NEW_GLOB}" STREQUAL "${OLD_GLOB}")
+  message("-- GLOB mismatch!")
+  file(TOUCH_NOCREATE "/Users/manjotrishi/Documents/ReactNative/dailyQuizz/android/app/.cxx/Debug/1162594e/arm64-v8a/CMakeFiles/cmake.verify_globs")
+endif()
+
+# react_codegen_SRCS at /Users/manjotrishi/Documents/ReactNative/dailyQuizz/node_modules/react-native-nitro-modules/android/build/generated/source/codegen/jni/CMakeLists.txt:9 (file)
+file(GLOB NEW_GLOB LIST_DIRECTORIES true "/Users/manjotrishi/Documents/ReactNative/dailyQuizz/node_modules/react-native-nitro-modules/android/build/generated/source/codegen/jni/react/renderer/components/NitroModulesSpec/*.cpp")
+set(OLD_GLOB
+  "/Users/manjotrishi/Documents/ReactNative/dailyQuizz/node_modules/react-native-nitro-modules/android/build/generated/source/codegen/jni/react/renderer/components/NitroModulesSpec/ComponentDescriptors.cpp"
+  "/Users/manjotrishi/Documents/ReactNative/dailyQuizz/node_modules/react-native-nitro-modules/android/build/generated/source/codegen/jni/react/renderer/components/NitroModulesSpec/EventEmitters.cpp"
+  "/Users/manjotrishi/Documents/ReactNative/dailyQuizz/node_modules/react-native-nitro-modules/android/build/generated/source/codegen/jni/react/renderer/components/NitroModulesSpec/Props.cpp"
+  "/Users/manjotrishi/Documents/ReactNative/dailyQuizz/node_modules/react-native-nitro-modules/android/build/generated/source/codegen/jni/react/renderer/components/NitroModulesSpec/ShadowNodes.cpp"
+  "/Users/manjotrishi/Documents/ReactNative/dailyQuizz/node_modules/react-native-nitro-modules/android/build/generated/source/codegen/jni/react/renderer/components/NitroModulesSpec/States.cpp"
   )
 if(NOT "${NEW_GLOB}" STREQUAL "${OLD_GLOB}")
   message("-- GLOB mismatch!")
@@ -179,6 +227,30 @@ set(OLD_GLOB
   "/Users/manjotrishi/Documents/ReactNative/dailyQuizz/node_modules/react-native-screens/android/src/main/jni/../../../build/generated/source/codegen/jni/react/renderer/components/rnscreens/Props.cpp"
   "/Users/manjotrishi/Documents/ReactNative/dailyQuizz/node_modules/react-native-screens/android/src/main/jni/../../../build/generated/source/codegen/jni/react/renderer/components/rnscreens/ShadowNodes.cpp"
   "/Users/manjotrishi/Documents/ReactNative/dailyQuizz/node_modules/react-native-screens/android/src/main/jni/../../../build/generated/source/codegen/jni/react/renderer/components/rnscreens/States.cpp"
+  )
+if(NOT "${NEW_GLOB}" STREQUAL "${OLD_GLOB}")
+  message("-- GLOB mismatch!")
+  file(TOUCH_NOCREATE "/Users/manjotrishi/Documents/ReactNative/dailyQuizz/android/app/.cxx/Debug/1162594e/arm64-v8a/CMakeFiles/cmake.verify_globs")
+endif()
+
+# react_codegen_SRCS at /Users/manjotrishi/Documents/ReactNative/dailyQuizz/node_modules/react-native-sound/android/build/generated/source/codegen/jni/CMakeLists.txt:9 (file)
+file(GLOB NEW_GLOB LIST_DIRECTORIES true "/Users/manjotrishi/Documents/ReactNative/dailyQuizz/node_modules/react-native-sound/android/build/generated/source/codegen/jni/*.cpp")
+set(OLD_GLOB
+  "/Users/manjotrishi/Documents/ReactNative/dailyQuizz/node_modules/react-native-sound/android/build/generated/source/codegen/jni/RNSoundSpec-generated.cpp"
+  )
+if(NOT "${NEW_GLOB}" STREQUAL "${OLD_GLOB}")
+  message("-- GLOB mismatch!")
+  file(TOUCH_NOCREATE "/Users/manjotrishi/Documents/ReactNative/dailyQuizz/android/app/.cxx/Debug/1162594e/arm64-v8a/CMakeFiles/cmake.verify_globs")
+endif()
+
+# react_codegen_SRCS at /Users/manjotrishi/Documents/ReactNative/dailyQuizz/node_modules/react-native-sound/android/build/generated/source/codegen/jni/CMakeLists.txt:9 (file)
+file(GLOB NEW_GLOB LIST_DIRECTORIES true "/Users/manjotrishi/Documents/ReactNative/dailyQuizz/node_modules/react-native-sound/android/build/generated/source/codegen/jni/react/renderer/components/RNSoundSpec/*.cpp")
+set(OLD_GLOB
+  "/Users/manjotrishi/Documents/ReactNative/dailyQuizz/node_modules/react-native-sound/android/build/generated/source/codegen/jni/react/renderer/components/RNSoundSpec/ComponentDescriptors.cpp"
+  "/Users/manjotrishi/Documents/ReactNative/dailyQuizz/node_modules/react-native-sound/android/build/generated/source/codegen/jni/react/renderer/components/RNSoundSpec/EventEmitters.cpp"
+  "/Users/manjotrishi/Documents/ReactNative/dailyQuizz/node_modules/react-native-sound/android/build/generated/source/codegen/jni/react/renderer/components/RNSoundSpec/Props.cpp"
+  "/Users/manjotrishi/Documents/ReactNative/dailyQuizz/node_modules/react-native-sound/android/build/generated/source/codegen/jni/react/renderer/components/RNSoundSpec/ShadowNodes.cpp"
+  "/Users/manjotrishi/Documents/ReactNative/dailyQuizz/node_modules/react-native-sound/android/build/generated/source/codegen/jni/react/renderer/components/RNSoundSpec/States.cpp"
   )
 if(NOT "${NEW_GLOB}" STREQUAL "${OLD_GLOB}")
   message("-- GLOB mismatch!")

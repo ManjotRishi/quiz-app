@@ -1,23 +1,24 @@
 import { StyleSheet } from 'react-native';
 import { colors } from './colors';
+import { fontScale } from './responsive';
 
 export const textStyles = StyleSheet.create({
   header: {
-    fontSize: 32,
+    fontSize: fontScale(32),
     fontWeight: '700',
     color: colors.textDark,
   },
   title: {
-    fontSize: 24,
+    fontSize: fontScale(24),
     fontWeight: '600',
     color: colors.textDark,
   },
   label: {
-    fontSize: 16,
+    fontSize: fontScale(16),
     color: colors.textMuted,
   },
   highlight: {
-    fontSize: 20,
+    fontSize: fontScale(20),
     fontWeight: '700',
   },
 });

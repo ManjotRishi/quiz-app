@@ -1,0 +1,22 @@
+{
+  "name": "daily-quizz-backend",
+  "version": "1.0.0",
+  "description": "Backend for Daily Quiz App - Vercel serverless + cron jobs",
+  "main": "api/generateQuiz.js",
+  "type": "module",
+  "scripts": {
+    "start": "node api/generateQuiz.js",
+    "test:quiz": "node api/generateQuiz.js"
+  },
+  "dependencies": {
+    "@gnews-io/gnews-io-js": "^2.2.0",
+    "dotenv": "^17.3.1",
+    "firebase-admin": "^13.7.0",
+    "moment": "^2.30.1",
+    "node-fetch": "^3.3.2",
+    "openai": "^6.32.0"
+  },
+  "engines": {
+    "node": ">=22.11.0"
+  }
+}

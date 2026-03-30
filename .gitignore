@@ -1,6 +1,8 @@
 # Node modules
 node_modules/
 
+.env
+
 # Expo
 .expo/
 .expo-shared/
@@ -90,3 +92,4 @@ ios/build/
 # logs
 npm-debug.log
 yarn-error.log
+.vercel

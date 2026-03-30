@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleProp, StyleSheet, Text, TouchableOpacity, ViewStyle } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { colors } from '../style/colors';
+import { fontScale, radiusScale, verticalScale } from '../style/responsive';
 
 type GradientButtonProps = {
   label: string;
@@ -20,8 +21,8 @@ export const GradientButton = ({
     <TouchableOpacity activeOpacity={0.8} onPress={onPress} disabled={disabled} style={style}>
       <LinearGradient
         colors={[colors.gradientStart, colors.gradientEnd]}
-        start={{ x: 0.2, y: 0 }}
-        end={{ x: 1, y: 1 }}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0.9 }}
         style={[styles.button, disabled && styles.disabled]}
       >
         <Text style={styles.label}>{label}</Text>
@@ -32,15 +33,21 @@ export const GradientButton = ({
 
 const styles = StyleSheet.create({
   button: {
-    borderRadius: 25,
-    height: 52,
+    borderRadius: radiusScale(20),
+    minHeight: verticalScale(58),
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.24,
+    shadowRadius: 16,
+    elevation: 6,
   },
   label: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    color: '#F8F4FF',
+    fontSize: fontScale(17),
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   disabled: {
     opacity: 0.6,

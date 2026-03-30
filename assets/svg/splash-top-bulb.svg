@@ -1,0 +1,23 @@
+<svg width="240" height="220" viewBox="0 0 240 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bulbGlow" x1="24" y1="18" x2="192" y2="194" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFF7B7"/>
+      <stop offset="46%" stop-color="#FFD76A"/>
+      <stop offset="100%" stop-color="#FF8C6A"/>
+    </linearGradient>
+    <radialGradient id="bulbSoft" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(78 86) rotate(90) scale(72 72)">
+      <stop offset="0%" stop-color="#FFECA1" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#FFECA1" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <ellipse cx="76" cy="86" rx="70" ry="70" fill="url(#bulbSoft)"/>
+  <path d="M74 28C53 28 36 45 36 66c0 14 7.6 25.1 18.1 33.2 1.8 1.3 2.9 3.5 2.9 5.8V114h33V105c0-2.3 1.1-4.5 2.9-5.8C103.4 91.1 112 79.7 112 66c0-21-17-38-38-38Z" fill="url(#bulbGlow)"/>
+  <path d="M61 114h26v10H61z" fill="#FFE6B5"/>
+  <path d="M63 125h22v7H63z" fill="#FFD48E"/>
+  <path d="M64 58c2.7-9.7 10-16 19.3-16 8.6 0 15.8 5 19.2 13.4" stroke="#FFFBE5" stroke-width="3" stroke-linecap="round"/>
+  <path d="M25 36l4 10 10 4-10 4-4 10-4-10-10-4 10-4 4-10Z" fill="#FFEA8B" opacity="0.95"/>
+  <path d="M146 40l3 7 7 3-7 3-3 7-3-7-7-3 7-3 3-7Z" fill="#C9A7FF" opacity="0.95"/>
+  <path d="M154 124c18-12 31-15 44-8" stroke="#FF99E2" stroke-width="4" stroke-linecap="round" stroke-dasharray="7 11"/>
+  <circle cx="186" cy="110" r="4.5" fill="#FFFFFF" opacity="0.85"/>
+  <circle cx="40" cy="148" r="3.5" fill="#FFD76A" opacity="0.9"/>
+</svg>

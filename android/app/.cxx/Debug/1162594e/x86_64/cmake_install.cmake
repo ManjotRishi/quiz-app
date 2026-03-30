@@ -44,11 +44,14 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for each subdirectory.
+  include("/Users/manjotrishi/Documents/ReactNative/dailyQuizz/android/app/.cxx/Debug/1162594e/x86_64/RNCNetInfoSpec_autolinked_build/cmake_install.cmake")
   include("/Users/manjotrishi/Documents/ReactNative/dailyQuizz/android/app/.cxx/Debug/1162594e/x86_64/rngesturehandler_codegen_autolinked_build/cmake_install.cmake")
+  include("/Users/manjotrishi/Documents/ReactNative/dailyQuizz/android/app/.cxx/Debug/1162594e/x86_64/NitroModulesSpec_autolinked_build/cmake_install.cmake")
   include("/Users/manjotrishi/Documents/ReactNative/dailyQuizz/android/app/.cxx/Debug/1162594e/x86_64/RNPermissionsSpec_autolinked_build/cmake_install.cmake")
   include("/Users/manjotrishi/Documents/ReactNative/dailyQuizz/android/app/.cxx/Debug/1162594e/x86_64/rnreanimated_autolinked_build/cmake_install.cmake")
   include("/Users/manjotrishi/Documents/ReactNative/dailyQuizz/android/app/.cxx/Debug/1162594e/x86_64/safeareacontext_autolinked_build/cmake_install.cmake")
   include("/Users/manjotrishi/Documents/ReactNative/dailyQuizz/android/app/.cxx/Debug/1162594e/x86_64/rnscreens_autolinked_build/cmake_install.cmake")
+  include("/Users/manjotrishi/Documents/ReactNative/dailyQuizz/android/app/.cxx/Debug/1162594e/x86_64/RNSoundSpec_autolinked_build/cmake_install.cmake")
   include("/Users/manjotrishi/Documents/ReactNative/dailyQuizz/android/app/.cxx/Debug/1162594e/x86_64/rnsvg_autolinked_build/cmake_install.cmake")
   include("/Users/manjotrishi/Documents/ReactNative/dailyQuizz/android/app/.cxx/Debug/1162594e/x86_64/rnworklets_autolinked_build/cmake_install.cmake")
 

@@ -3,6 +3,6 @@
   "compilerOptions": {
     "types": ["jest"]
   },
-  "include": ["**/*.ts", "**/*.tsx", "hooks/useCountdown.js"],
+  "include": ["**/*.ts", "**/*.tsx", "hooks/useCountdown.js", "pages/QuizBoard.jsx"],
   "exclude": ["**/node_modules", "**/Pods"]
 }

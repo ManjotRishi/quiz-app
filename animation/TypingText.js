@@ -7,6 +7,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { splashTexts } from '../util/constants';
+import { colors } from '../style/colors';
 
 
 
@@ -73,12 +74,12 @@ export default TypingText;
 
 const styles = StyleSheet.create({
   text: {
-    color: 'rgba(255,255,255,0.9)',
-    fontSize: 18,
+    color: colors.textDark,
+    fontSize: 20,
     marginTop: 6,
-    letterSpacing: 0.5,
+    letterSpacing: 1.2,
   },
   cursor: {
-    color: '#fff',
+    color: colors.deepPurple,
   },
 });

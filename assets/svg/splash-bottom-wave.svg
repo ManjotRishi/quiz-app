@@ -1,0 +1,17 @@
+<svg width="360" height="220" viewBox="0 0 360 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="waveGlow" x1="36" y1="18" x2="324" y2="184" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#6A5BFF" stop-opacity="0.3"/>
+      <stop offset="54%" stop-color="#FF7BD6" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#7EE6FF" stop-opacity="0.35"/>
+    </linearGradient>
+  </defs>
+  <path d="M0 144C40 118 76 114 112 128C150 144 180 178 222 181C264 184 298 155 360 135V220H0V144Z" fill="url(#waveGlow)"/>
+  <path d="M0 159C42 138 80 136 116 147C155 159 180 190 224 193C264 196 306 173 360 152" stroke="#FFF3B9" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="2 14" opacity="0.35"/>
+  <path d="M48 120l4 8 8 4-8 4-4 8-4-8-8-4 8-4 4-8Z" fill="#FFFFFF" opacity="0.8"/>
+  <path d="M145 96l3 6 6 3-6 3-3 6-3-6-6-3 6-3 3-6Z" fill="#FFD76A" opacity="0.85"/>
+  <path d="M272 110l4 8 8 4-8 4-4 8-4-8-8-4 8-4 4-8Z" fill="#C9A7FF" opacity="0.8"/>
+  <circle cx="73" cy="164" r="3.5" fill="#FF9CEB" opacity="0.75"/>
+  <circle cx="233" cy="150" r="4" fill="#FFFFFF" opacity="0.72"/>
+  <circle cx="312" cy="168" r="3.5" fill="#7EE6FF" opacity="0.78"/>
+</svg>

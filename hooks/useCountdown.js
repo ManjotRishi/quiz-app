@@ -1,18 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-
-export const useCountdown = ({ start, onExpire }) => {
+export const useCountdown = ({ start, resetKey }) => {
   const [seconds, setSeconds] = useState(start);
   const intervalRef = useRef(null);
 
   useEffect(() => {
     setSeconds(start);
     intervalRef.current && clearInterval(intervalRef.current);
+
+    if (start <= 0) {
+      return () => intervalRef.current && clearInterval(intervalRef.current);
+    }
+
     intervalRef.current = setInterval(() => {
       setSeconds((prev) => {
         if (prev <= 1) {
           intervalRef.current && clearInterval(intervalRef.current);
-          onExpire && onExpire();
           return 0;
         }
         return prev - 1;
@@ -20,7 +23,7 @@ export const useCountdown = ({ start, onExpire }) => {
     }, 1000);
 
     return () => intervalRef.current && clearInterval(intervalRef.current);
-  }, [start, onExpire]);
+  }, [start, resetKey]);
 
   const reset = useCallback(() => {
     setSeconds(start);

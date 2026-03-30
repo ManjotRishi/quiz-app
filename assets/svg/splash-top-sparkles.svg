@@ -1,0 +1,18 @@
+<svg width="320" height="220" viewBox="0 0 320 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="sparkLine" x1="24" y1="28" x2="270" y2="164" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#B7A6FF"/>
+      <stop offset="52%" stop-color="#FF88E1"/>
+      <stop offset="100%" stop-color="#7BE7FF"/>
+    </linearGradient>
+  </defs>
+  <path d="M28 146C58 118 73 90 109 72C141 56 174 61 195 77C223 98 250 103 292 72" stroke="url(#sparkLine)" stroke-width="4" stroke-linecap="round" stroke-dasharray="2 12" opacity="0.55"/>
+  <path d="M79 42l6 13 13 6-13 6-6 13-6-13-13-6 13-6 6-13Z" fill="#FFFFFF" opacity="0.95"/>
+  <path d="M231 32l5 10 10 5-10 5-5 10-5-10-10-5 10-5 5-10Z" fill="#FFEA8B" opacity="0.95"/>
+  <path d="M267 126l4 8 8 4-8 4-4 8-4-8-8-4 8-4 4-8Z" fill="#CFAAFF" opacity="0.9"/>
+  <circle cx="116" cy="76" r="5" fill="#FF9CEB" opacity="0.92"/>
+  <circle cx="174" cy="58" r="4" fill="#7EE6FF" opacity="0.88"/>
+  <circle cx="205" cy="112" r="4.5" fill="#FFFFFF" opacity="0.9"/>
+  <circle cx="148" cy="154" r="3.5" fill="#FFD76A" opacity="0.88"/>
+  <circle cx="46" cy="92" r="3.5" fill="#C9A7FF" opacity="0.85"/>
+</svg>
