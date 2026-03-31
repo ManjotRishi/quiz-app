@@ -32,6 +32,34 @@ export const quizBoardStyles = StyleSheet.create({
     borderRadius: 120,
     backgroundColor: 'rgba(96,165,250,0.08)',
   },
+  thumbsBurstOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 5,
+  },
+  thumbsBurst: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 999,
+  },
+  thumbEmoji: {
+    fontSize: 40,
+    marginHorizontal: 4,
+  },
+  thumbLeft: {
+    transform: [{ rotate: '-18deg' }],
+  },
+  thumbRight: {
+    transform: [{ rotate: '16deg' }],
+  },
   fixedTopSection: {
     paddingHorizontal: 16,
     paddingTop: 12,

@@ -178,6 +178,8 @@ const CurrentAffairs = ({ navigation }) => {
 
   const shakeX = useSharedValue(0);
   const showCross = useSharedValue(0);
+  const thumbsScale = useSharedValue(0.4);
+  const thumbsOpacity = useSharedValue(0);
 
   const questions = useMemo(
     () => getLanguageQuestions(quizData, selectedLanguage),
@@ -203,7 +205,10 @@ const CurrentAffairs = ({ navigation }) => {
     setSelectedOption(null);
     setCurrentCorrect(false);
     setFeedbackMessage(null);
-  }, [currentIndex, quizData]);
+    showCross.value = 0;
+    thumbsOpacity.value = 0;
+    thumbsScale.value = 0.4;
+  }, [currentIndex, quizData, showCross, thumbsOpacity, thumbsScale]);
 
   const finishQuiz = useCallback(
     ({
@@ -287,6 +292,22 @@ const CurrentAffairs = ({ navigation }) => {
     startAfterElapsedSeconds: 6,
   });
 
+  const runThumbsAnimation = () => {
+    thumbsScale.value = 0.45;
+    thumbsOpacity.value = 0;
+    thumbsOpacity.value = withSequence(
+      withTiming(1, { duration: 180 }),
+      withTiming(1, { duration: 1500 }),
+      withTiming(0, { duration: 320 })
+    );
+    thumbsScale.value = withSequence(
+      withTiming(1.2, { duration: 220 }),
+      withTiming(1, { duration: 120 }),
+      withTiming(1, { duration: 1340 }),
+      withTiming(0.82, { duration: 320 })
+    );
+  };
+
   const handleSelect = (option) => {
     if (!quizStarted || selectedOption) {
       return;
@@ -305,7 +326,10 @@ const CurrentAffairs = ({ navigation }) => {
         : getRandomMessage(wrongMessages)
     );
 
-    if (!isCorrect) {
+    if (isCorrect) {
+      runThumbsAnimation();
+      showCross.value = 0;
+    } else {
       shakeX.value = withSequence(
         withTiming(-10, { duration: 50 }),
         withTiming(10, { duration: 50 }),
@@ -359,6 +383,8 @@ const CurrentAffairs = ({ navigation }) => {
     setCurrentCorrect(false);
     setFeedbackMessage(null);
     showCross.value = 0;
+    thumbsOpacity.value = 0;
+    thumbsScale.value = 0.4;
   };
 
   const handleStartQuiz = useCallback(() => {
@@ -378,6 +404,11 @@ const CurrentAffairs = ({ navigation }) => {
 
   const crossStyle = useAnimatedStyle(() => ({
     transform: [{ scale: showCross.value }],
+  }));
+
+  const thumbsStyle = useAnimatedStyle(() => ({
+    opacity: thumbsOpacity.value,
+    transform: [{ scale: thumbsScale.value }],
   }));
 
   if (quizLoading) {
@@ -431,6 +462,13 @@ const CurrentAffairs = ({ navigation }) => {
         <View style={styles.bubbleOne} />
         <View style={styles.bubbleTwo} />
         <View style={styles.bubbleThree} />
+        <Animated.View style={[styles.thumbsBurstOverlay, thumbsStyle]} pointerEvents="none">
+          <View style={styles.thumbsBurst}>
+            <Text style={[styles.thumbEmoji, styles.thumbLeft]}>👍</Text>
+            <Text style={styles.thumbEmoji}>👍</Text>
+            <Text style={[styles.thumbEmoji, styles.thumbRight]}>👍</Text>
+          </View>
+        </Animated.View>
         <View style={styles.fixedTopSection}>
           <View style={styles.topBar}>
             <View style={styles.compactControlsWrap}>
@@ -676,6 +714,34 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(84,150,255,0.08)',
     borderWidth: 1,
     borderColor: 'rgba(84,150,255,0.14)',
+  },
+  thumbsBurstOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 5,
+  },
+  thumbsBurst: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 999,
+  },
+  thumbEmoji: {
+    fontSize: 40,
+    marginHorizontal: 4,
+  },
+  thumbLeft: {
+    transform: [{ rotate: '-18deg' }],
+  },
+  thumbRight: {
+    transform: [{ rotate: '16deg' }],
   },
   fixedTopSection: {
     paddingHorizontal: 16,

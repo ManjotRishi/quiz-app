@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated from 'react-native-reanimated';
 import QuizRemotePad from '../QuizRemotePad';
 import TimeOverOverlay from '../TimeOverOverlay';
 import StartQuizOverlay from '../StartQuizOverlay';
@@ -32,6 +33,7 @@ const QuizBoardContent = ({
   timeProgressColors,
   shakeStyle,
   crossStyle,
+  thumbsStyle,
   handleLanguageChange,
   handleSelect,
   handleNext,
@@ -60,6 +62,13 @@ const QuizBoardContent = ({
       >
         <View pointerEvents="none" style={styles.backgroundGlowTop} />
         <View pointerEvents="none" style={styles.backgroundGlowBottom} />
+        <Animated.View style={[styles.thumbsBurstOverlay, thumbsStyle]} pointerEvents="none">
+          <View style={styles.thumbsBurst}>
+            <Text style={[styles.thumbEmoji, styles.thumbLeft]}>👍</Text>
+            <Text style={styles.thumbEmoji}>👍</Text>
+            <Text style={[styles.thumbEmoji, styles.thumbRight]}>👍</Text>
+          </View>
+        </Animated.View>
 
         <View style={styles.fixedTopSection}>
           <View style={styles.topBar}>

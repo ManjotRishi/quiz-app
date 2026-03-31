@@ -62,6 +62,24 @@ export const useQuizBoard = ({
 
   const shakeX = useSharedValue(0);
   const showCross = useSharedValue(0);
+  const thumbsScale = useSharedValue(0.4);
+  const thumbsOpacity = useSharedValue(0);
+
+  const runThumbsAnimation = useCallback(() => {
+    thumbsScale.value = 0.45;
+    thumbsOpacity.value = 0;
+    thumbsOpacity.value = withSequence(
+      withTiming(1, { duration: 180 }),
+      withTiming(1, { duration: 1500 }),
+      withTiming(0, { duration: 320 })
+    );
+    thumbsScale.value = withSequence(
+      withTiming(1.2, { duration: 220 }),
+      withTiming(1, { duration: 120 }),
+      withTiming(1, { duration: 1340 }),
+      withTiming(0.82, { duration: 320 })
+    );
+  }, [thumbsOpacity, thumbsScale]);
 
   const getTodayQuiz = useCallback(async () => {
     const docSnap = await firestore().collection(collectionName).doc(LISTINGDOC).get();
@@ -380,7 +398,10 @@ export const useQuizBoard = ({
     setSelectedOption(null);
     setCurrentCorrect(false);
     setFeedbackMessage(null);
-  }, [currentIndex, quizData]);
+    showCross.value = 0;
+    thumbsOpacity.value = 0;
+    thumbsScale.value = 0.4;
+  }, [currentIndex, quizData, showCross, thumbsOpacity, thumbsScale]);
 
   const handleNext = useCallback(() => {
     if (autoNextTimerRef.current) {
@@ -419,6 +440,8 @@ export const useQuizBoard = ({
     setCurrentCorrect(false);
     setFeedbackMessage(null);
     showCross.value = 0;
+    thumbsOpacity.value = 0;
+    thumbsScale.value = 0.4;
   }, [
     correctCount,
     currentCorrect,
@@ -428,6 +451,8 @@ export const useQuizBoard = ({
     selectedOption,
     seconds,
     showCross,
+    thumbsOpacity,
+    thumbsScale,
     timeSpentSeconds,
     wrongCount,
   ]);
@@ -460,7 +485,10 @@ export const useQuizBoard = ({
         speakQuizText(spokenFeedback, { interrupt: true, appLanguage: selectedLanguage });
       }
 
-      if (!isCorrect) {
+      if (isCorrect) {
+        runThumbsAnimation();
+        showCross.value = 0;
+      } else {
         shakeX.value = withSequence(
           withTiming(-10, { duration: 50 }),
           withTiming(10, { duration: 50 }),
@@ -486,6 +514,7 @@ export const useQuizBoard = ({
       quizStarted,
       selectedLanguage,
       selectedOption,
+      runThumbsAnimation,
       shakeX,
       showCross,
     ]
@@ -507,6 +536,11 @@ export const useQuizBoard = ({
 
   const crossStyle = useAnimatedStyle(() => ({
     transform: [{ scale: showCross.value }],
+  }));
+
+  const thumbsStyle = useAnimatedStyle(() => ({
+    opacity: thumbsOpacity.value,
+    transform: [{ scale: thumbsScale.value }],
   }));
 
   const requestRetry = useCallback(() => {
@@ -545,6 +579,7 @@ export const useQuizBoard = ({
     timeProgressColors,
     shakeStyle,
     crossStyle,
+    thumbsStyle,
     handleLanguageChange,
     handleSelect,
     handleNext,
