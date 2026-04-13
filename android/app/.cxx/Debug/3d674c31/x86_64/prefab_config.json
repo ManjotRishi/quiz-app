@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "prefabPath": "C:\\Users\\Laptop\\.gradle\\caches\\modules-2\\files-2.1\\com.google.prefab\\cli\\2.1.0\\aa32fec809c44fa531f01dcfb739b5b3304d3050\\cli-2.1.0-all.jar",
+  "packages": [
+    "D:\\QUIZZ\\quiz-app\\node_modules\\react-native-nitro-modules\\android\\build\\intermediates\\prefab_package\\debug\\prefab",
+    "C:\\Users\\Laptop\\.gradle\\caches\\8.13\\transforms\\a8cfc1ef5817bece686a6e0fea4cf0a6\\transformed\\react-android-0.84.1-debug\\prefab",
+    "D:\\QUIZZ\\quiz-app\\node_modules\\react-native-reanimated\\android\\build\\intermediates\\prefab_package\\debug\\prefab",
+    "D:\\QUIZZ\\quiz-app\\node_modules\\react-native-worklets\\android\\build\\intermediates\\prefab_package\\debug\\prefab",
+    "C:\\Users\\Laptop\\.gradle\\caches\\8.13\\transforms\\d1d1d11cade926cf2e432d0fc938447d\\transformed\\hermes-android-250829098.0.9-debug\\prefab",
+    "C:\\Users\\Laptop\\.gradle\\caches\\8.13\\transforms\\303fee4c62f79741089dcd3bc3043cdd\\transformed\\fbjni-0.7.0\\prefab"
+  ]
+}
