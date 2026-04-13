@@ -1,280 +1,81 @@
 import React from 'react';
-import { ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { StatusBar, StyleSheet, Text, View } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, {
   Easing,
   Extrapolate,
   interpolate,
-  interpolateColor,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
-  withSequence,
   withTiming,
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../style/colors';
 
-const QUESTION_ROWS = [
-  {
-    index: '01',
-    titleWidth: '78%',
-    metaWidth: '42%',
-    options: ['74%', '58%', '64%'],
-  },
-  {
-    index: '02',
-    titleWidth: '66%',
-    metaWidth: '38%',
-    options: ['52%', '70%', '60%'],
-  },
-  {
-    index: '03',
-    titleWidth: '83%',
-    metaWidth: '46%',
-    options: ['62%', '55%', '76%'],
-  },
-  {
-    index: '04',
-    titleWidth: '71%',
-    metaWidth: '34%',
-    options: ['68%', '51%', '57%'],
-  },
-];
-
-const STEP_LABELS = ['Framing', 'Writing', 'Balancing', 'Polishing'];
-
-const StepChip = ({ label, index, phase }) => {
-  const animatedStyle = useAnimatedStyle(() => {
-    const start = index * 0.18;
-    const end = start + 0.24;
-    const rawProgress = (phase.value - start) / (end - start);
-    const localProgress = Math.max(0, Math.min(1, rawProgress));
+const OrbitDot = ({ index, rotation }) => {
+  const dotStyle = useAnimatedStyle(() => {
+    const offset = index * 0.18;
+    const progress = (rotation.value + offset) % 1;
 
     return {
-      backgroundColor: interpolateColor(
-        localProgress,
-        [0, 1],
-        ['rgba(255,255,255,0.04)', 'rgba(94, 228, 245, 0.12)']
-      ),
-      borderColor: interpolateColor(
-        localProgress,
-        [0, 1],
-        ['rgba(255,255,255,0.08)', 'rgba(94, 228, 245, 0.28)']
-      ),
+      opacity: interpolate(progress, [0, 0.5, 1], [0.28, 1, 0.28], Extrapolate.CLAMP),
       transform: [
-        { scale: interpolate(localProgress, [0, 1], [1, 1.04], Extrapolate.CLAMP) },
+        { rotate: `${progress * 360}deg` },
+        { translateY: -70 },
+        { scale: interpolate(progress, [0, 0.5, 1], [0.7, 1.1, 0.7], Extrapolate.CLAMP) },
       ],
     };
   });
 
-  return (
-    <Animated.View style={[styles.stepChip, animatedStyle]}>
-      <Text style={styles.stepText}>{label}</Text>
-    </Animated.View>
-  );
-};
-
-const QuestionRow = ({ item, rowIndex, phase, shimmer, beacon }) => {
-  const rowStyle = useAnimatedStyle(() => {
-    const start = rowIndex * 0.18;
-    const end = start + 0.28;
-    const rawProgress = (phase.value - start) / (end - start);
-    const localProgress = Math.max(0, Math.min(1, rawProgress));
-    const settled = phase.value > end ? 1 : 0;
-
-    return {
-      opacity: interpolate(localProgress, [0, 1], [0.38, 1], Extrapolate.CLAMP),
-      transform: [
-        { translateX: interpolate(localProgress, [0, 1], [20, 0], Extrapolate.CLAMP) },
-        { scale: interpolate(localProgress, [0, 1], [0.97, 1], Extrapolate.CLAMP) },
-      ],
-      borderColor: interpolateColor(
-        localProgress,
-        [0, 1],
-        ['rgba(255,255,255,0.08)', 'rgba(94, 228, 245, 0.25)']
-      ),
-      backgroundColor: interpolateColor(
-        settled ? 1 : localProgress,
-        [0, 1],
-        ['rgba(255,255,255,0.05)', 'rgba(43, 49, 124, 0.88)']
-      ),
-    };
-  });
-
-  const badgeStyle = useAnimatedStyle(() => {
-    const start = rowIndex * 0.18;
-    const end = start + 0.28;
-    const rawProgress = (phase.value - start) / (end - start);
-    const localProgress = Math.max(0, Math.min(1, rawProgress));
-
-    return {
-      backgroundColor: interpolateColor(
-        localProgress,
-        [0, 1],
-        ['rgba(255,255,255,0.08)', 'rgba(94, 228, 245, 0.9)']
-      ),
-      transform: [
-        { scale: interpolate(localProgress, [0, 1], [0.88, 1], Extrapolate.CLAMP) },
-      ],
-    };
-  });
-
-  const titleFillStyle = useAnimatedStyle(() => {
-    const start = rowIndex * 0.18;
-    const end = start + 0.24;
-    const rawProgress = (phase.value - start) / (end - start);
-    const localProgress = Math.max(0, Math.min(1, rawProgress));
-
-    return {
-      transform: [{ scaleX: localProgress }],
-      opacity: interpolate(localProgress, [0, 1], [0.2, 1], Extrapolate.CLAMP),
-    };
-  });
-
-  const shimmerStyle = useAnimatedStyle(() => {
-    const start = rowIndex * 0.18;
-    const end = start + 0.28;
-    const active = phase.value >= start && phase.value <= end + 0.04;
-    const translateDistance = 320;
-
-    return {
-      opacity: active ? 1 : 0,
-      transform: [{ translateX: interpolate(shimmer.value, [0, 1], [-120, translateDistance]) }],
-    };
-  });
-
-  const beaconStyle = useAnimatedStyle(() => {
-    const start = rowIndex * 0.18;
-    const end = start + 0.28;
-    const active = phase.value >= start && phase.value <= end + 0.04;
-
-    return {
-      opacity: active ? 1 : 0.35,
-      transform: [{ scale: active ? beacon.value : 1 }],
-    };
-  });
-
-  return (
-    <Animated.View style={[styles.rowCard, rowStyle]}>
-      <LinearGradient
-        colors={['rgba(94, 228, 245, 0.22)', 'rgba(43, 49, 124, 0.02)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.rowBorderGlow}
-      />
-      <Animated.View style={[styles.rowShimmer, shimmerStyle]} />
-
-      <Animated.View style={[styles.rowBadge, badgeStyle]}>
-        <Text style={styles.rowBadgeText}>{item.index}</Text>
-      </Animated.View>
-
-      <View style={styles.rowContent}>
-        <View style={styles.rowHeader}>
-          <View style={styles.textTrack}>
-            <Animated.View
-              style={[
-                styles.textFillPrimary,
-                { width: item.titleWidth },
-                titleFillStyle,
-              ]}
-            />
-          </View>
-          <Animated.View style={[styles.statusBeacon, beaconStyle]} />
-        </View>
-
-        <View style={[styles.textTrack, styles.metaTrack]}>
-          <Animated.View
-            style={[
-              styles.textFillSecondary,
-              { width: item.metaWidth },
-              titleFillStyle,
-            ]}
-          />
-        </View>
-
-        <View style={styles.optionStack}>
-          {item.options.map((width, optionIndex) => (
-            <View key={`${item.index}-${optionIndex}`} style={styles.optionRow}>
-              <View style={styles.optionBullet} />
-              <View style={styles.optionTrack}>
-                <Animated.View
-                  style={[
-                    styles.optionFill,
-                    { width },
-                    titleFillStyle,
-                  ]}
-                />
-              </View>
-            </View>
-          ))}
-        </View>
-      </View>
-    </Animated.View>
-  );
+  return <Animated.View style={[styles.orbitDot, dotStyle]} />;
 };
 
 const QuizLoader = ({ isLoading }) => {
-  const phase = useSharedValue(0);
-  const shimmer = useSharedValue(0);
+  const rotation = useSharedValue(0);
   const pulse = useSharedValue(0);
-  const beacon = useSharedValue(1);
 
   React.useEffect(() => {
     if (!isLoading) {
-      phase.value = 0;
-      shimmer.value = 0;
+      rotation.value = 0;
       pulse.value = 0;
-      beacon.value = 1;
       return;
     }
 
-    phase.value = withRepeat(
+    rotation.value = withRepeat(
       withTiming(1, {
-        duration: 3600,
-        easing: Easing.inOut(Easing.cubic),
-      }),
-      -1,
-      false
-    );
-
-    shimmer.value = withRepeat(
-      withTiming(1, {
-        duration: 1400,
+        duration: 1800,
         easing: Easing.linear,
       }),
       -1,
-      false
+      false,
     );
 
     pulse.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 1800, easing: Easing.inOut(Easing.quad) }),
-        withTiming(0, { duration: 1800, easing: Easing.inOut(Easing.quad) })
-      ),
+      withTiming(1, {
+        duration: 1600,
+        easing: Easing.inOut(Easing.quad),
+      }),
       -1,
-      false
+      true,
     );
+  }, [isLoading, pulse, rotation]);
 
-    beacon.value = withRepeat(
-      withSequence(
-        withTiming(1.18, { duration: 700, easing: Easing.out(Easing.quad) }),
-        withTiming(1, { duration: 700, easing: Easing.inOut(Easing.quad) })
-      ),
-      -1,
-      false
-    );
-  }, [beacon, isLoading, phase, pulse, shimmer]);
+  const ringStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${rotation.value * 360}deg` }],
+  }));
 
   const haloStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(pulse.value, [0, 1], [0.35, 0.8], Extrapolate.CLAMP),
+    opacity: interpolate(pulse.value, [0, 1], [0.28, 0.62], Extrapolate.CLAMP),
     transform: [
-      { scale: interpolate(pulse.value, [0, 1], [0.92, 1.08], Extrapolate.CLAMP) },
+      { scale: interpolate(pulse.value, [0, 1], [0.94, 1.08], Extrapolate.CLAMP) },
     ],
   }));
 
-  const railFillStyle = useAnimatedStyle(() => ({
-    width: `${18 + phase.value * 72}%`,
+  const coreStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: interpolate(pulse.value, [0, 1], [0.98, 1.04], Extrapolate.CLAMP) },
+    ],
   }));
 
   if (!isLoading) {
@@ -290,55 +91,46 @@ const QuizLoader = ({ isLoading }) => {
         end={{ x: 1, y: 1 }}
         style={styles.container}
       >
-        <Animated.View style={[styles.ambientOrbLarge, haloStyle]} />
-        <Animated.View style={[styles.ambientOrbSmall, haloStyle]} />
+        <Animated.View style={[styles.ambientGlowTop, haloStyle]} />
+        <Animated.View style={[styles.ambientGlowBottom, haloStyle]} />
 
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
-          <View style={styles.topBlock}>
-            <View style={styles.livePill}>
-              <View style={styles.liveDot} />
-              <Text style={styles.livePillText}>AI is building today&apos;s quiz</Text>
-            </View>
-
-            <Text style={styles.title}>Real-time quiz, quietly coming together.</Text>
-            <Text style={styles.subtitle}>
-              Fresh questions, cleaner structure, balanced difficulty.
-            </Text>
-
-            <View style={styles.progressRail}>
-              <Animated.View style={[styles.progressFill, railFillStyle]} />
-            </View>
-
-            <View style={styles.stepRow}>
-              {STEP_LABELS?.map((label, index) => (
-                <StepChip key={label} label={label} index={index} phase={phase} />
+        <View style={styles.content}>
+          <View style={styles.loaderShell}>
+            <Animated.View style={[styles.outerHalo, haloStyle]} />
+            <Animated.View style={[styles.orbitRing, ringStyle]}>
+              {Array.from({ length: 6 }).map((_, index) => (
+                <OrbitDot key={index} index={index} rotation={rotation} />
               ))}
-            </View>
+            </Animated.View>
+
+            <Animated.View style={[styles.coreWrap, coreStyle]}>
+              <LinearGradient
+                colors={['rgba(96,165,250,0.22)', 'rgba(139,92,246,0.22)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.coreGlow}
+              />
+              <LinearGradient
+                colors={['#0F172A', '#18233F', '#21143A']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.core}
+              >
+                <Text style={styles.coreLabel}>DQ</Text>
+              </LinearGradient>
+            </Animated.View>
           </View>
 
-          <View style={styles.panel}>
-            <View style={styles.panelHeader}>
-              <Text style={styles.panelEyebrow}>QUESTION STACK</Text>
-              <Text style={styles.panelTitle}>Drafting answer-ready cards</Text>
-            </View>
+          <Text style={styles.title}>Preparing your quiz</Text>
+          <Text style={styles.subtitle}>
+            Fresh questions are loading with a clean, balanced set of challenges.
+          </Text>
 
-            <View style={styles.listWrap}>
-              {QUESTION_ROWS.map((item, rowIndex) => (
-                <QuestionRow
-                  key={item.index}
-                  item={item}
-                  rowIndex={rowIndex}
-                  phase={phase}
-                  shimmer={shimmer}
-                  beacon={beacon}
-                />
-              ))}
-            </View>
+          <View style={styles.statusPill}>
+            <View style={styles.statusDot} />
+            <Text style={styles.statusText}>Please wait a moment</Text>
           </View>
-        </ScrollView>
+        </View>
       </LinearGradient>
     </SafeAreaView>
   );
@@ -351,232 +143,137 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    paddingHorizontal: 16,
     overflow: 'hidden',
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  scrollContent: {
-    paddingTop: 20,
-    paddingBottom: 18,
-  },
-  ambientOrbLarge: {
+  ambientGlowTop: {
     position: 'absolute',
-    top: -60,
-    right: -40,
+    top: -80,
+    right: -30,
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    backgroundColor: 'rgba(96,165,250,0.16)',
+  },
+  ambientGlowBottom: {
+    position: 'absolute',
+    bottom: -60,
+    left: -40,
     width: 220,
     height: 220,
     borderRadius: 110,
-    backgroundColor: 'rgba(94, 228, 245, 0.14)',
+    backgroundColor: 'rgba(139,92,246,0.14)',
   },
-  ambientOrbSmall: {
-    position: 'absolute',
-    bottom: 120,
-    left: -40,
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    backgroundColor: 'rgba(122, 148, 255, 0.14)',
-  },
-  topBlock: {
-    paddingTop: 6,
-  },
-  livePill: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
+  content: {
+    width: '100%',
+    maxWidth: 320,
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  loaderShell: {
+    width: 210,
+    height: 210,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 30,
+  },
+  outerHalo: {
+    position: 'absolute',
+    width: 188,
+    height: 188,
+    borderRadius: 94,
+    backgroundColor: 'rgba(255,255,255,0.04)',
     borderWidth: 1,
-    borderColor: 'rgba(94, 228, 245, 0.32)',
+    borderColor: 'rgba(255,255,255,0.06)',
   },
-  liveDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  orbitRing: {
+    position: 'absolute',
+    width: 164,
+    height: 164,
+    borderRadius: 82,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  orbitDot: {
+    position: 'absolute',
+    width: 12,
+    height: 12,
+    borderRadius: 6,
     backgroundColor: colors.electricBlue,
-    marginRight: 8,
+    shadowColor: colors.electricBlue,
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 0 },
   },
-  livePillText: {
+  coreWrap: {
+    width: 114,
+    height: 114,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  coreGlow: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 57,
+  },
+  core: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    shadowColor: '#000000',
+    shadowOpacity: 0.22,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 6,
+  },
+  coreLabel: {
     color: colors.textDark,
-    fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: 0.3,
+    fontSize: 26,
+    fontWeight: '900',
+    letterSpacing: 1.2,
   },
   title: {
-    marginTop: 14,
+    color: colors.textDark,
     fontSize: 28,
     lineHeight: 34,
     fontWeight: '800',
-    color: colors.textDark,
-    maxWidth: 280,
+    textAlign: 'center',
   },
   subtitle: {
-    marginTop: 8,
-    fontSize: 14,
-    lineHeight: 20,
+    marginTop: 10,
     color: colors.textMuted,
-    maxWidth: 270,
+    fontSize: 15,
+    lineHeight: 22,
+    textAlign: 'center',
+    maxWidth: 300,
   },
-  progressRail: {
-    marginTop: 18,
-    height: 7,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 999,
-    backgroundColor: colors.gradientStart,
-  },
-  stepRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 12,
-  },
-  stepChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 14,
-    marginRight: 8,
-    marginBottom: 8,
-    borderWidth: 1,
-  },
-  stepText: {
-    color: colors.textDark,
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  panel: {
-    marginTop: 8,
-    borderRadius: 24,
-    padding: 15,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-  },
-  panelHeader: {
-    marginBottom: 16,
-  },
-  panelEyebrow: {
-    color: colors.electricBlue,
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1.4,
-  },
-  panelTitle: {
-    marginTop: 6,
-    color: colors.textDark,
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  listWrap: {
-    marginTop: 2,
-  },
-  rowCard: {
-    overflow: 'hidden',
-    borderRadius: 18,
-    borderWidth: 1,
-    padding: 11,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 10,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderColor: 'rgba(255,255,255,0.12)',
-    shadowColor: '#000000',
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 3,
-  },
-  rowBorderGlow: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  rowShimmer: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: 84,
-    backgroundColor: 'rgba(94, 228, 245, 0.12)',
-    transform: [{ skewX: '-18deg' }],
-  },
-  rowBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  rowBadgeText: {
-    color: colors.textDark,
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  rowContent: {
-    flex: 1,
-  },
-  rowHeader: {
+  statusPill: {
+    marginTop: 22,
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  textTrack: {
-    height: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     borderRadius: 999,
     backgroundColor: 'rgba(255,255,255,0.08)',
-    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(96,165,250,0.24)',
   },
-  textFillPrimary: {
-    height: '100%',
-    borderRadius: 999,
-    backgroundColor: colors.electricBlue,
-  },
-  statusBeacon: {
+  statusDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colors.electricBlue,
-    marginLeft: 8,
-    shadowColor: colors.electricBlue,
-    shadowOpacity: 0.6,
-    shadowRadius: 8,
-  },
-  metaTrack: {
-    marginTop: 8,
-    height: 8,
-  },
-  textFillSecondary: {
-    height: '100%',
-    borderRadius: 999,
-    backgroundColor: 'rgba(244,247,255,0.7)',
-  },
-  optionStack: {
-    marginTop: 10,
-  },
-  optionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  optionBullet: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.gradientStart,
     marginRight: 8,
+    backgroundColor: colors.electricBlue,
   },
-  optionTrack: {
-    flex: 1,
-    height: 8,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    overflow: 'hidden',
-  },
-  optionFill: {
-    height: '100%',
-    borderRadius: 999,
-    backgroundColor: colors.gradientEnd,
+  statusText: {
+    color: colors.textDark,
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
 });
 

@@ -1,5 +1,7 @@
 import { runQuizProcess } from './generateQuiz.js';
 
+export const maxDuration = 300;
+
 export default async function handler(req, res) {
   try {
     const headerSecret = req.headers?.authorization?.replace(/^Bearer\s+/i, '');

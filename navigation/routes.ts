@@ -3,6 +3,7 @@ export const ROUTES = {
   Home: 'Home',
   QuizBoard: 'QuizBoard',
   EnglishQuizz: 'EnglishQuizz',
+  ChildQuizz: 'ChildQuizz',
   GkBoard: 'GkBoard',
   TrickeyQuestions: 'TrickeyQuestions',
   More: 'More',

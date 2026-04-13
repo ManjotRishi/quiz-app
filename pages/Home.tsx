@@ -9,12 +9,16 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
+import { useNavigationState } from '@react-navigation/native';
 import LinearGradient from 'react-native-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import Advertisement from '../components/Advertisement';
+import { useInterstitialAd } from '../hooks/useInterstitialAd';
 import { ROUTES } from '../navigation/routes';
 import { RootStackParamList } from '../navigation/types';
 import { fontScale, radiusScale, spaceScale } from '../style/responsive';
+import { showDebugUpdatePreview } from '../util/inAppUpdates';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
@@ -38,19 +42,26 @@ const SCORE_PREVIEW = {
   accuracy: 70,
 };
 
-const Home = ({ navigation }: Props) => {
+
+const Home = ({ navigation, route }: Props) => {
   const { width } = useWindowDimensions();
+   const { prepareAdv, startAdv } = useInterstitialAd();
+  const hasShownThisVisitRef = useRef(false);
+  const showAdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const adWatchdogTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isTopRoute = useNavigationState((state) => state.routes[state.index]?.key === route.key);
   const titleFade = useRef(new Animated.Value(0)).current;
   const heroScale = useRef(new Animated.Value(0.96)).current;
   const heroFloat = useRef(new Animated.Value(0)).current;
   const cardAnims = useRef(
-    Array.from({ length: 5 }, () => new Animated.Value(0))
+    Array.from({ length: 6 }, () => new Animated.Value(0))
   ).current;
   const featuredWidth = Math.min(width * 0.82, 320);
   const featuredHeight = Math.min(width * 0.46, 182);
   const orbitWidth = Math.min(width * 0.42, 170);
   const orbitHeight = Math.min(width * 0.33, 142);
-  const deckHeight = spaceScale(520);
+  const deckHeight = spaceScale(660);
+
 
   useEffect(() => {
     Animated.parallel([
@@ -81,6 +92,12 @@ const Home = ({ navigation }: Props) => {
   }, [cardAnims, heroFloat, heroScale, titleFade]);
 
   useEffect(() => {
+    prepareAdv();
+  }, [prepareAdv]);
+
+
+
+  useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(heroFloat, {
@@ -100,6 +117,69 @@ const Home = ({ navigation }: Props) => {
 
     return () => loop.stop();
   }, [heroFloat]);
+
+  useEffect(() => {
+    if (!isTopRoute) {
+      hasShownThisVisitRef.current = false;
+      if (showAdTimerRef.current) {
+        clearTimeout(showAdTimerRef.current);
+        showAdTimerRef.current = null;
+      }
+      return;
+    }
+
+    if (hasShownThisVisitRef.current) {
+      return;
+    }
+
+    hasShownThisVisitRef.current = true;
+
+    if (showAdTimerRef.current) {
+      clearTimeout(showAdTimerRef.current);
+    }
+
+    showAdTimerRef.current = setTimeout(() => {
+      if (adWatchdogTimerRef.current) {
+        clearTimeout(adWatchdogTimerRef.current);
+      }
+
+      adWatchdogTimerRef.current = setTimeout(() => {
+        adWatchdogTimerRef.current = null;
+      }, 20000);
+
+      const started = startAdv({
+        placementKey: 'home-screen-visit',
+        cooldownMs: 0,
+        onClosed: () => {
+          if (adWatchdogTimerRef.current) {
+            clearTimeout(adWatchdogTimerRef.current);
+            adWatchdogTimerRef.current = null;
+          }
+        },
+      });
+
+      if (!started && adWatchdogTimerRef.current) {
+        clearTimeout(adWatchdogTimerRef.current);
+        adWatchdogTimerRef.current = null;
+      }
+    }, 900);
+
+    return () => {
+      if (showAdTimerRef.current) {
+        clearTimeout(showAdTimerRef.current);
+        showAdTimerRef.current = null;
+      }
+    };
+  }, [isTopRoute, startAdv]);
+
+  useEffect(() => () => {
+    if (showAdTimerRef.current) {
+      clearTimeout(showAdTimerRef.current);
+    }
+    if (adWatchdogTimerRef.current) {
+      clearTimeout(adWatchdogTimerRef.current);
+    }
+  }, []);
 
   const cards = [
     {
@@ -127,8 +207,20 @@ const Home = ({ navigation }: Props) => {
       onPress: () => navigation.navigate(ROUTES.EnglishQuizz),
     },
     {
-      key: 'gk',
+      key: 'child',
       number: '03',
+      badge: 'Kids',
+      centerLabel: 'Kids',
+      title: 'Child Quizz',
+      subtitle: 'Tap for child-friendly questions, colors, and fun learning.',
+      colors: ['#3D1458', '#1D0C31', '#0C0717'],
+      accent: '#F59E0B',
+      glow: 'rgba(245,158,11,0.24)',
+      onPress: () => navigation.navigate(ROUTES.ChildQuizz),
+    },
+    {
+      key: 'gk',
+      number: '04',
       badge: 'Current Affairs',
       centerLabel: 'CA',
       title: 'Current Affairs',
@@ -140,7 +232,7 @@ const Home = ({ navigation }: Props) => {
     },
     {
       key: 'tricky',
-      number: '04',
+      number: '05',
       badge: 'Puzzles',
       centerLabel: 'Puzzles',
       title: 'Tricky Questions',
@@ -152,7 +244,7 @@ const Home = ({ navigation }: Props) => {
     },
     {
       key: 'score',
-      number: '05',
+      number: '06',
       badge: 'Score',
       centerLabel: 'Score',
       title: 'Score Report',
@@ -205,6 +297,14 @@ const Home = ({ navigation }: Props) => {
       width: orbitWidth,
       height: orbitHeight,
     },
+    {
+      top: featuredHeight + orbitHeight * 2 + 142,
+      left: Math.max(0, (width - featuredWidth * 0.88) / 2),
+      rotate: '-2deg',
+      zIndex: 1,
+      width: featuredWidth * 0.88,
+      height: orbitHeight,
+    },
   ];
 
   const heroFloatStyle = {
@@ -252,6 +352,9 @@ const Home = ({ navigation }: Props) => {
         end={{ x: 1, y: 1 }}
         style={styles.container}
       >
+        <View style={styles.bannerWrap}>
+          <Advertisement banner containerStyle={styles.banner} />
+        </View>
         <View style={styles.meshGlow} />
         <View style={styles.glowOne} />
         <View style={styles.glowTwo} />
@@ -261,7 +364,15 @@ const Home = ({ navigation }: Props) => {
         <View style={styles.bubbleTwo} />
         <View style={styles.bubbleThree} />
         <View style={styles.bubbleFour} />
-
+        {__DEV__ ? (
+          <TouchableOpacity
+            activeOpacity={0.92}
+            onPress={showDebugUpdatePreview}
+            style={styles.debugUpdateButton}
+          >
+            <Text style={styles.debugUpdateButtonText}>Test Update Popup</Text>
+          </TouchableOpacity>
+        ) : null}
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           <Animated.View
             style={[
@@ -408,6 +519,7 @@ const Home = ({ navigation }: Props) => {
             })}
           </View>
         </ScrollView>
+
       </LinearGradient>
     </SafeAreaView>
   );
@@ -426,8 +538,44 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: spaceScale(18),
-    paddingTop: spaceScale(10),
+    paddingTop: spaceScale(100),
     paddingBottom: spaceScale(30),
+  },
+  bannerWrap: {
+    position: 'absolute',
+    top: spaceScale(-20),
+    left: spaceScale(18),
+    right: spaceScale(18),
+    zIndex: 30,
+    elevation: 30,
+  },
+  banner: {
+    paddingVertical: spaceScale(10),
+    borderRadius: radiusScale(22),
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(9, 7, 19, 0.22)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+  },
+  debugUpdateButton: {
+    position: 'absolute',
+    top: spaceScale(62),
+    right: spaceScale(18),
+    zIndex: 35,
+    elevation: 35,
+    paddingHorizontal: spaceScale(14),
+    paddingVertical: spaceScale(10),
+    borderRadius: radiusScale(999),
+    backgroundColor: 'rgba(14, 25, 58, 0.88)',
+    borderWidth: 1,
+    borderColor: 'rgba(137, 196, 255, 0.28)',
+  },
+  debugUpdateButtonText: {
+    color: '#EAF2FF',
+    fontSize: fontScale(11),
+    fontWeight: '800',
+    letterSpacing: 0.4,
   },
   meshGlow: {
     position: 'absolute',

@@ -1,4 +1,7 @@
 {
   "name": "dailyQuizz",
-  "displayName": "dailyQuizz"
+  "displayName": "dailyQuizz",
+  "react-native-google-mobile-ads": {
+    "android_app_id": "ca-app-pub-8954280599634551~7250714958" 
+  }
 }

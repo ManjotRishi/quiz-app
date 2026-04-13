@@ -3,6 +3,7 @@ import { ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-nativ
 import LinearGradient from 'react-native-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated from 'react-native-reanimated';
+import Advertisement from '../Advertisement';
 import QuizRemotePad from '../QuizRemotePad';
 import TimeOverOverlay from '../TimeOverOverlay';
 import StartQuizOverlay from '../StartQuizOverlay';
@@ -46,6 +47,7 @@ const QuizBoardContent = ({
   showCompactEnglishButton = true,
   showEnglishTutorialButton = true,
   compactControls = false,
+  showBanner = false,
   welcomeTitle = 'Welcome to GK Quiz',
 }) => {
   const progressWidth = `${totalQuestions ? (seconds / INITIAL_TIME) * 100 : 0}%`;
@@ -69,6 +71,12 @@ const QuizBoardContent = ({
             <Text style={[styles.thumbEmoji, styles.thumbRight]}>👍</Text>
           </View>
         </Animated.View>
+
+        {showBanner ? (
+          <View style={styles.bannerWrap}>
+            <Advertisement banner containerStyle={styles.banner} />
+          </View>
+        ) : null}
 
         <View style={styles.fixedTopSection}>
           <View style={styles.topBar}>
@@ -234,8 +242,10 @@ const QuizBoardContent = ({
         <StartQuizOverlay
           visible={!quizStarted}
           title={welcomeTitle}
-          subtitle="Tap Start when you are ready. The timer, sound, and auto-advance will begin after that."
+          subtitle="Choose your mode to begin. Kids opens the child quiz experience, and Adults starts the GK board."
           onStart={handleStartQuiz}
+          onSelectChild={() => navigation.navigate(ROUTES.ChildQuizz)}
+          onSelectAdult={handleStartQuiz}
         />
       </LinearGradient>
     </SafeAreaView>

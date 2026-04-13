@@ -1,9 +1,12 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useNavigationState } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import LinearGradient from 'react-native-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GradientButton } from '../components/GradientButton';
+import Advertisement from '../components/Advertisement';
+import { useInterstitialAd } from '../hooks/useInterstitialAd';
 import { ROUTES } from '../navigation/routes';
 import { colors } from '../style/colors';
 import { fontScale, radiusScale, spaceScale, verticalScale } from '../style/responsive';
@@ -19,6 +22,11 @@ import { RootStackParamList } from '../navigation/types';
 type Props = NativeStackScreenProps<RootStackParamList, 'Score'>;
 
 const Score = ({ navigation, route }: Props) => {
+  const { prepareAdv, startAdv } = useInterstitialAd();
+  const hasShownThisVisitRef = useRef(false);
+  const showAdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const adWatchdogTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isTopRoute = useNavigationState((state) => state.routes[state.index]?.key === route.key);
   const {
     quizType,
     quizLabel,
@@ -38,6 +46,81 @@ const Score = ({ navigation, route }: Props) => {
   const scorePoints = correctAnswers * 10;
   const message = getScoreMessage(accuracy);
   const attemptedAnswers = totalQuestions - notAttemptedAnswers;
+
+  useEffect(() => {
+    prepareAdv();
+  }, [prepareAdv]);
+
+  useEffect(() => {
+    if (!isTopRoute) {
+      hasShownThisVisitRef.current = false;
+      if (showAdTimerRef.current) {
+        clearTimeout(showAdTimerRef.current);
+        showAdTimerRef.current = null;
+      }
+      if (adWatchdogTimerRef.current) {
+        clearTimeout(adWatchdogTimerRef.current);
+        adWatchdogTimerRef.current = null;
+      }
+      return;
+    }
+
+    if (hasShownThisVisitRef.current) {
+      return;
+    }
+
+    hasShownThisVisitRef.current = true;
+
+    if (showAdTimerRef.current) {
+      clearTimeout(showAdTimerRef.current);
+    }
+
+    showAdTimerRef.current = setTimeout(() => {
+      if (adWatchdogTimerRef.current) {
+        clearTimeout(adWatchdogTimerRef.current);
+      }
+
+      adWatchdogTimerRef.current = setTimeout(() => {
+        adWatchdogTimerRef.current = null;
+      }, 20000);
+
+      const started = startAdv({
+        placementKey: 'score-screen-visit',
+        cooldownMs: 0,
+        onClosed: () => {
+          if (adWatchdogTimerRef.current) {
+            clearTimeout(adWatchdogTimerRef.current);
+            adWatchdogTimerRef.current = null;
+          }
+        },
+      });
+
+      if (!started && adWatchdogTimerRef.current) {
+        clearTimeout(adWatchdogTimerRef.current);
+        adWatchdogTimerRef.current = null;
+      }
+    }, 650);
+
+    return () => {
+      if (showAdTimerRef.current) {
+        clearTimeout(showAdTimerRef.current);
+        showAdTimerRef.current = null;
+      }
+      if (adWatchdogTimerRef.current) {
+        clearTimeout(adWatchdogTimerRef.current);
+        adWatchdogTimerRef.current = null;
+      }
+    };
+  }, [isTopRoute, startAdv]);
+
+  useEffect(() => () => {
+    if (showAdTimerRef.current) {
+      clearTimeout(showAdTimerRef.current);
+    }
+    if (adWatchdogTimerRef.current) {
+      clearTimeout(adWatchdogTimerRef.current);
+    }
+  }, []);
 
   const storedTopicStats = readQuizTopicStats();
   const topicReport = getTopicStatsSummary(storedTopicStats).sort(
@@ -63,6 +146,9 @@ const Score = ({ navigation, route }: Props) => {
         end={{ x: 1, y: 1 }}
         style={styles.container}
       >
+        <View style={styles.bannerWrap}>
+          <Advertisement banner containerStyle={styles.banner} />
+        </View>
         <View style={styles.bubbleOne} />
         <View style={styles.bubbleTwo} />
         <View style={styles.bubbleThree} />
@@ -259,7 +345,25 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   scrollContent: {
+    paddingTop: spaceScale(90),
     paddingBottom: spaceScale(28),
+  },
+  bannerWrap: {
+    position: 'absolute',
+    top: spaceScale(-20),
+    left: spaceScale(20),
+    right: spaceScale(20),
+    zIndex: 30,
+    elevation: 30,
+  },
+  banner: {
+    paddingVertical: spaceScale(10),
+    borderRadius: radiusScale(22),
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(9, 7, 19, 0.22)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
   },
   topLabelRow: {
     flexDirection: 'row',

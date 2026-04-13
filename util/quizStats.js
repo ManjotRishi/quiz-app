@@ -29,7 +29,7 @@ const getStorage = () => {
 
 const STORAGE = getStorage();
 
-export const TOPIC_ORDER = ['gk', 'english', 'tc', 'ca'];
+export const TOPIC_ORDER = ['gk', 'english', 'child', 'tc', 'ca'];
 
 export const TOPIC_META = {
   gk: {
@@ -45,6 +45,13 @@ export const TOPIC_META = {
     title: 'English Quizz',
     accent: '#60A5FA',
     glow: 'rgba(96,165,250,0.26)',
+  },
+  child: {
+    key: 'child',
+    label: 'Child Quizz',
+    title: 'Child Quizz',
+    accent: '#F59E0B',
+    glow: 'rgba(245,158,11,0.24)',
   },
   tc: {
     key: 'tc',
@@ -87,6 +94,10 @@ const normalizeQuizType = (quizType) => {
 
   if (quizType === 'english') {
     return 'english';
+  }
+
+  if (quizType === 'child') {
+    return 'child';
   }
 
   return 'gk';

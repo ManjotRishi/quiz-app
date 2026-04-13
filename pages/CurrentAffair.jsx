@@ -22,7 +22,7 @@ import QuizRemotePad from '../components/QuizRemotePad';
 import QuestionClock from '../components/QuestionClock';
 import TimeOverOverlay from '../components/TimeOverOverlay';
 import StartQuizOverlay from '../components/StartQuizOverlay';
-import { BackIcon, EnglishQuizIcon, HomeIcon, SpeakerIcon } from '../components/icons';
+import { BackIcon, HomeIcon, SpeakerIcon, VoiceIcon } from '../components/icons';
 import { OptionTile } from '../components/OptionTile';
 import QuizLoader from '../animation/QuizLoader';
 import AnimationListWraper from '../animation/AnimationListWraper';
@@ -37,6 +37,12 @@ import NetworkIssueOverlay from '../components/NetworkIssueOverlay';
 import { loadWithTimeout } from '../util/loadWithTimeout';
 import { recordQuizResult } from '../util/quizStats';
 import { ROUTES } from '../navigation/routes';
+import {
+  buildQuestionSpeech,
+  ensureQuizVoiceReady,
+  resetQuizVoice,
+  speakQuizText,
+} from '../audioManager/quizTts';
 
 const getRandomMessage = (arr = []) =>
   arr[Math.floor(Math.random() * arr.length)];
@@ -98,6 +104,7 @@ const CurrentAffairs = ({ navigation }) => {
   const [quizLoading, setQuizLoading] = useState(true);
   const [quizError, setQuizError] = useState(null);
   const [isSoundMuted, setIsSoundMuted] = useState(false);
+  const [isVoiceMuted, setIsVoiceMuted] = useState(false);
   const [showTimeOver, setShowTimeOver] = useState(false);
   const [quizStarted, setQuizStarted] = useState(false);
   const [showControls, setShowControls] = useState(false);
@@ -105,6 +112,7 @@ const CurrentAffairs = ({ navigation }) => {
   const netInfo = useNetInfo();
   const timeOverHandledRef = useRef(false);
   const autoNextTimerRef = useRef(null);
+  const lastSpokenQuestionRef = useRef('');
   const isOffline = netInfo.isConnected === false || netInfo.isInternetReachable === false;
 
 
@@ -190,12 +198,94 @@ const CurrentAffairs = ({ navigation }) => {
   const correctOption = resolveCorrectOption(question);
   const isLastQuestion = currentIndex === totalQuestions - 1;
 
+  useEffect(() => {
+    if (!isFocused || !quizStarted || quizLoading || !question?.question || selectedOption) {
+      return;
+    }
+
+    const spokenKey = `${currentIndex}:${question.question}`;
+
+    if (isVoiceMuted || lastSpokenQuestionRef.current === spokenKey) {
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      const readQuestion = async () => {
+        try {
+          const spoken = await speakQuizText(
+            buildQuestionSpeech(currentIndex + 1, question.question, selectedLanguage),
+            { interrupt: false, appLanguage: selectedLanguage }
+          );
+
+          if (spoken) {
+            lastSpokenQuestionRef.current = spokenKey;
+          }
+        } catch (error) {
+          console.warn('Failed to speak current affairs question:', error);
+        }
+      };
+
+      readQuestion();
+    }, 150);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [currentIndex, isFocused, isVoiceMuted, quizLoading, quizStarted, question?.question, selectedLanguage, selectedOption]);
+
+  useEffect(() => {
+    if (!isVoiceMuted) {
+      return;
+    }
+
+    resetQuizVoice().catch((error) => {
+      console.warn('Failed to stop current affairs voice after muting:', error);
+    });
+  }, [isVoiceMuted]);
+
+  useEffect(() => {
+    if (isVoiceMuted || !isFocused) {
+      return;
+    }
+
+    ensureQuizVoiceReady(selectedLanguage).catch((error) => {
+      console.warn('Failed to prepare current affairs voice for selected language:', error);
+    });
+  }, [isFocused, isVoiceMuted, selectedLanguage]);
+
+  useEffect(() => {
+    if (isFocused) {
+      return;
+    }
+
+    resetQuizVoice().catch((error) => {
+      console.warn('Failed to stop current affairs voice after leaving screen:', error);
+    });
+  }, [isFocused]);
+
+  useEffect(() => {
+    return () => {
+      resetQuizVoice().catch((error) => {
+        console.warn('Failed to stop current affairs voice during cleanup:', error);
+      });
+    };
+  }, []);
+
   const handleLanguageChange = useCallback((language) => {
     if (autoNextTimerRef.current) {
       clearTimeout(autoNextTimerRef.current);
       autoNextTimerRef.current = null;
     }
 
+    resetQuizVoice().catch((error) => {
+      console.warn('Failed to stop current affairs voice during language change:', error);
+    });
+
+    ensureQuizVoiceReady(language).catch((error) => {
+      console.warn('Failed to switch current affairs voice language:', error);
+    });
+
+    lastSpokenQuestionRef.current = '';
     const targetQuestions = getLanguageQuestions(quizData, language);
     const targetTotal = targetQuestions?.length ?? 0;
     const nextIndex = targetTotal > 0 ? Math.min(currentIndex, targetTotal - 1) : 0;
@@ -355,6 +445,10 @@ const CurrentAffairs = ({ navigation }) => {
       clearTimeout(autoNextTimerRef.current);
       autoNextTimerRef.current = null;
     }
+
+    resetQuizVoice().catch((error) => {
+      console.warn('Failed to stop current affairs voice before moving to next question:', error);
+    });
 
     const spentSeconds = INITIAL_TIME - seconds;
     const hasSelection = Boolean(selectedOption);
@@ -534,6 +628,11 @@ const CurrentAffairs = ({ navigation }) => {
                       onPress: () => setIsSoundMuted((prev) => !prev),
                       children: <SpeakerIcon muted={isSoundMuted} color="#F4F7FF" size={20} />,
                     }}
+                    extra={{
+                      onPress: () => setIsVoiceMuted((prev) => !prev),
+                      label: '',
+                      children: <VoiceIcon muted={isVoiceMuted} color="#F4F7FF" size={45} />,
+                    }}
                     center={{
                       onPress: () => navigation.navigate(ROUTES.Home),
                       children: <HomeIcon color="#F4F7FF" size={20} />,
@@ -545,10 +644,6 @@ const CurrentAffairs = ({ navigation }) => {
                     bottom={{
                       onPress: () => navigation.navigate(ROUTES.QuizBoard),
                       children: <Text style={styles.remoteLabel}>Q</Text>,
-                    }}
-                    extra={{
-                      onPress: () => navigation.navigate(ROUTES.EnglishQuizz),
-                      children: <EnglishQuizIcon color="#F4F7FF" size={18} />,
                     }}
                   />
                 </View>

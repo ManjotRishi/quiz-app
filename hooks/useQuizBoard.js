@@ -19,6 +19,7 @@ import { getRandomMessage, getTimeProgressColors, resolveCorrectOption } from '.
 import { recordQuizResult } from '../util/quizStats';
 import { loadWithTimeout } from '../util/loadWithTimeout';
 import { ROUTES } from '../navigation/routes';
+import { useInterstitialAd } from './useInterstitialAd';
 import {
   buildFeedbackSpeech,
   buildQuestionSpeech,
@@ -59,6 +60,9 @@ export const useQuizBoard = ({
   const timeOverHandledRef = useRef(false);
   const autoNextTimerRef = useRef(null);
   const lastSpokenQuestionRef = useRef('');
+  const lastInterstitialQuestionRef = useRef(0);
+
+  const { prepareAdv, startAdv } = useInterstitialAd();
 
   const shakeX = useSharedValue(0);
   const showCross = useSharedValue(0);
@@ -292,6 +296,14 @@ export const useQuizBoard = ({
   const correctOption = resolveCorrectOption(question);
   const isLastQuestion = currentIndex === totalQuestions - 1;
 
+  useEffect(() => {
+    if (quizLoading || !totalQuestions) {
+      return;
+    }
+
+    prepareAdv();
+  }, [prepareAdv, quizLoading, totalQuestions]);
+
   const finishQuiz = useCallback(
     ({
       finalCorrectCount,
@@ -389,6 +401,7 @@ export const useQuizBoard = ({
     });
 
     lastSpokenQuestionRef.current = '';
+    lastInterstitialQuestionRef.current = 0;
     const targetQuestions = getLanguageQuestions(quizData, language);
     const targetTotal = targetQuestions?.length ?? 0;
     const nextIndex = targetTotal > 0 ? Math.min(currentIndex, targetTotal - 1) : 0;
@@ -419,6 +432,16 @@ export const useQuizBoard = ({
     const nextWrongCount = wrongCount + (hasSelection && !currentCorrect ? 1 : 0);
     const nextNotAttemptedCount = notAttemptedCount + (hasSelection ? 0 : 1);
     const nextTimeSpentSeconds = timeSpentSeconds + spentSeconds;
+    const completedQuestionNumber = currentIndex + 1;
+    const shouldShowInterstitial = completedQuestionNumber % 5 === 0;
+    const onQuizFinish = () => {
+      finishQuiz({
+        finalCorrectCount: nextCorrectCount,
+        finalWrongCount: nextWrongCount,
+        finalNotAttemptedCount: nextNotAttemptedCount,
+        finalTimeTakenSeconds: nextTimeSpentSeconds,
+      });
+    };
 
     setCorrectCount(nextCorrectCount);
     setWrongCount(nextWrongCount);
@@ -426,13 +449,29 @@ export const useQuizBoard = ({
     setTimeSpentSeconds(nextTimeSpentSeconds);
 
     if (isLastQuestion) {
-      finishQuiz({
-        finalCorrectCount: nextCorrectCount,
-        finalWrongCount: nextWrongCount,
-        finalNotAttemptedCount: nextNotAttemptedCount,
-        finalTimeTakenSeconds: nextTimeSpentSeconds,
-      });
+      if (shouldShowInterstitial && lastInterstitialQuestionRef.current !== completedQuestionNumber) {
+        lastInterstitialQuestionRef.current = completedQuestionNumber;
+        const didShowInterstitial = startAdv({
+          placementKey: `${quizType}-question-break`,
+          cooldownMs: 0,
+          onClosed: onQuizFinish,
+        });
+
+        if (didShowInterstitial) {
+          return;
+        }
+      }
+
+      onQuizFinish();
       return;
+    }
+
+    if (shouldShowInterstitial && lastInterstitialQuestionRef.current !== completedQuestionNumber) {
+      lastInterstitialQuestionRef.current = completedQuestionNumber;
+      startAdv({
+        placementKey: `${quizType}-question-break`,
+        cooldownMs: 0,
+      });
     }
 
     setCurrentIndex((prev) => prev + 1);
@@ -587,5 +626,6 @@ export const useQuizBoard = ({
     setIsSoundMuted,
     setIsVoiceMuted,
     requestRetry,
+    prepareAdv,
   };
 };

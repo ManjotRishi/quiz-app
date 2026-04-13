@@ -62,11 +62,11 @@ export const quizBoardStyles = StyleSheet.create({
   },
   fixedTopSection: {
     paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingTop: 70,
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 10,
+    paddingTop: 12,
     paddingBottom: 28,
   },
   topBar: {
@@ -251,6 +251,23 @@ export const quizBoardStyles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '900',
     color: '#F4F7FF',
+  },
+  bannerWrap: {
+    position: 'absolute',
+    top:-20,
+    left: 16,
+    right: 16,
+    zIndex: 20,
+    elevation: 20,
+  },
+  banner: {
+    paddingVertical: 10,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(9, 7, 19, 0.22)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
   },
   emptyState: {
     flex: 1,

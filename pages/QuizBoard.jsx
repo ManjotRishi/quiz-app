@@ -49,6 +49,7 @@ const QuizBoard = ({ navigation }) => {
       navigation={navigation}
       welcomeTitle="Welcome to GK Quiz"
       showEnglishPill={false}
+      showBanner
       compactControls
       isLastQuestion={quizBoard.isLastQuestion}
       handleNext={quizBoard.handleNext}

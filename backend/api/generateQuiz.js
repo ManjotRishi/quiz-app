@@ -2,73 +2,79 @@ import admin from 'firebase-admin';
 import { OpenAI } from 'openai';
 import dotenv from 'dotenv';
 import moment from 'moment';
-import { pathToFileURL } from 'url';
+import path from 'path';
+import { fileURLToPath, pathToFileURL } from 'url';
 
-
-
-const generateEnglishQuestionPrompt = `You are an Expert English Grammar Quiz Generator.
-
-TASK:
-Generate exactly 25 multiple-choice questions to improve English grammar skills, ranging from Class 8 level to PhD level difficulty.
-
-CONTENT RULES:
-
-* Cover a mix of topics: tenses, articles, prepositions, voice, speech, conditionals, modals, error correction, sentence improvement, vocabulary, idioms, and advanced grammar.
-* Questions must gradually increase in difficulty (easy → medium → hard → expert).
-* Each question must be clear, practical, and useful for real-life English usage.
-* Avoid repetition. Every question must be unique.
-
-STRICT RULES:
-
-* Return ONLY a valid JSON object.
-* Do NOT include any explanation or extra text.
-* Do NOT use markdown or backticks.
-* Each question must have exactly 4 unique options.
-* Do NOT label options as A/B/C/D.
-* "correctAnswer" must EXACTLY match one option.
-* Wrong options should be grammatically close or commonly confused choices.
-
-RANDOMIZATION RULE:
-- Shuffle categories internally
-- Shuffle answer order
-- Use different topics each time
-- Use different difficulty distribution order
-- Use different years and statistics
-
-OUTPUT FORMAT:
-
-{
-"Questions": [
-{
-"category": "Grammar",
-"question": "string",
-"options": ["option1","option2","option3","option4"],
-"correctAnswer": "exact option text"
-}
-]
-}
-`
-
-
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const backendRoot = path.resolve(__dirname, '..');
+const projectRoot = path.resolve(backendRoot, '..');
 
 if (process.env.NODE_ENV !== 'production') {
-  dotenv.config();
+  dotenv.config({ path: path.join(backendRoot, '.env') });
+  dotenv.config({ path: path.join(projectRoot, '.env.local'), override: false });
 }
 
 let db;
 let messaging;
 let openAi;
 
+const OPENAI_MAX_RETRIES = 10;
+const RETRY_DELAY_MS = 1200;
+
+const normalizeServiceAccountEnv = (value) => {
+  if (!value || typeof value !== 'string') {
+    throw new Error('Missing FIREBASE_SERVICE_ACCOUNT env');
+  }
+
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    throw new Error('Empty FIREBASE_SERVICE_ACCOUNT env');
+  }
+
+  if (trimmed.startsWith('{')) {
+    return trimmed.replace(
+      /"private_key"\s*:\s*"([\s\S]*?)"/,
+      (_, privateKey) => `"private_key":"${privateKey.replace(/\r?\n/g, '\\n')}"`
+    );
+  }
+
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return normalizeServiceAccountEnv(trimmed.slice(1, -1));
+  }
+
+  try {
+    const decoded = Buffer.from(trimmed, 'base64').toString('utf8').trim();
+    if (decoded.startsWith('{')) {
+      return normalizeServiceAccountEnv(decoded);
+    }
+  } catch (error) {
+    console.warn('FIREBASE_SERVICE_ACCOUNT base64 decode failed:', error?.message ?? error);
+  }
+
+  throw new Error('FIREBASE_SERVICE_ACCOUNT is not valid JSON or base64 JSON');
+};
+
+const getFirebaseServiceAccount = () => {
+  const normalizedValue = normalizeServiceAccountEnv(process.env.FIREBASE_SERVICE_ACCOUNT);
+  const serviceAccount = JSON.parse(normalizedValue);
+
+  if (typeof serviceAccount?.private_key === 'string') {
+    serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+  }
+
+  return serviceAccount;
+};
+
 // ✅ Firebase init
 const ensureFirebase = () => {
   if (!db || !messaging) {
     if (!admin.apps.length) {
-      if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
-        throw new Error('Missing FIREBASE_SERVICE_ACCOUNT env');
-      }
-
-      const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-      serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+      const serviceAccount = getFirebaseServiceAccount();
 
       admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
@@ -87,12 +93,172 @@ const ensureOpenAi = () => {
   }
 };
 
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const parseJsonSafely = (text, label) => {
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    const jsonMatch = typeof text === 'string' ? text.match(/\{[\s\S]*\}/) : null;
+
+    if (jsonMatch) {
+      try {
+        return JSON.parse(jsonMatch[0]);
+      } catch (nestedError) {
+        console.error(`${label} JSON parse failed after extraction:`, nestedError?.message ?? nestedError);
+      }
+    }
+
+    console.error(`${label} JSON parse failed:`, typeof text === 'string' ? text.slice(0, 800) : text);
+    return null;
+  }
+};
+
+const getQuestionCount = (quizData) => {
+  if (!quizData || typeof quizData !== 'object') {
+    return 0;
+  }
+
+  return Array.isArray(quizData?.English) ? quizData.English.length : 0;
+};
+
+const hasValidQuizData = (quizData) => getQuestionCount(quizData) > 0;
+
+const getQuizLanguageCounts = (quizData) => ({
+  English: Array.isArray(quizData?.English) ? quizData.English.length : 0,
+  Hindi: Array.isArray(quizData?.Hindi) ? quizData.Hindi.length : 0,
+  Punjabi: Array.isArray(quizData?.Punjabi) ? quizData.Punjabi.length : 0,
+});
+
+const normalizeQuestion = (question) => {
+  if (!question || typeof question !== 'object') {
+    return null;
+  }
+
+  const normalizedQuestionText = typeof question?.question === 'string'
+    ? question.question.trim()
+    : '';
+
+  const normalizedOptions = Array.isArray(question?.options)
+    ? question.options
+      .map((option) => typeof option === 'string' ? option.trim() : '')
+      .filter(Boolean)
+    : [];
+
+  const rawCorrectAnswer = typeof question?.correctAnswer === 'string'
+    ? question.correctAnswer.trim()
+    : '';
+
+  if (!normalizedQuestionText || normalizedOptions.length !== 4 || !rawCorrectAnswer) {
+    return null;
+  }
+
+  const uniqueOptions = new Set(normalizedOptions.map((option) => option.toLowerCase()));
+  if (uniqueOptions.size !== 4) {
+    return null;
+  }
+
+  const matchedCorrectAnswer = normalizedOptions.find(
+    (option) => option === rawCorrectAnswer || option.toLowerCase() === rawCorrectAnswer.toLowerCase()
+  );
+
+  if (!matchedCorrectAnswer) {
+    return null;
+  }
+
+  return {
+    question: normalizedQuestionText,
+    options: normalizedOptions,
+    correctAnswer: matchedCorrectAnswer,
+  };
+};
+
+const getStoredQuiz = async (key) => {
+  const snapshot = await db?.collection(key)?.doc('LISTINGDOC')?.get();
+
+  if (!snapshot?.exists) {
+    return null;
+  }
+
+  const data = snapshot.data();
+  return hasValidQuizData(data?.questions) ? data.questions : null;
+};
+
+const callOpenAiJson = async (input, label) => {
+  ensureOpenAi();
+
+  if (!openAi) {
+    console.warn('OpenAI not configured');
+    return null;
+  }
+
+  for (let attempt = 1; attempt <= OPENAI_MAX_RETRIES; attempt += 1) {
+    try {
+      const response = await openAi.responses.create({
+        model: 'gpt-5-mini',
+        input,
+      });
+
+      const text = response?.output_text;
+      const parsed = parseJsonSafely(text, label);
+
+      if (parsed) {
+        return parsed;
+      }
+    } catch (error) {
+      console.error(`${label} attempt ${attempt} failed:`, error?.message ?? error);
+    }
+
+    if (attempt < OPENAI_MAX_RETRIES) {
+      await delay(RETRY_DELAY_MS * attempt);
+    }
+  }
+
+  return null;
+};
+
+const callOpenAiJsonWithOptions = async ({ input, label, model = 'gpt-5-mini' }) => {
+  ensureOpenAi();
+
+  if (!openAi) {
+    console.warn('OpenAI not configured');
+    return null;
+  }
+
+  for (let attempt = 1; attempt <= OPENAI_MAX_RETRIES; attempt += 1) {
+    try {
+      const response = await openAi.responses.create({
+        model,
+        input,
+      });
+
+      const text = response?.output_text;
+      const parsed = parseJsonSafely(text, label);
+
+      console.log(text,"><<<===========238",parsed)
+
+      if (parsed) {
+        return parsed;
+      }
+    } catch (error) {
+      console.error(`${label} attempt ${attempt} failed:`, error?.message ?? error);
+    }
+
+    if (attempt < OPENAI_MAX_RETRIES) {
+      await delay(RETRY_DELAY_MS * attempt);
+    }
+  }
+
+  return null;
+};
+
 // ✅ Shuffle + map to A/B/C/D
 const shuffleAndFormatQuiz = (questions) => {
   const letters = ["A", "B", "C", "D"];
 
-  return questions?.map((q) => {
-    if (!q?.options || q?.options?.length !== 4) return null;
+  return questions?.map((rawQuestion) => {
+    const q = normalizeQuestion(rawQuestion);
+    if (!q) return null;
 
     const options = [...q.options];
 
@@ -120,7 +286,8 @@ const fetchNews = async () => {
   const apiKey = process.env.NEWS_API_KEY;
 
   if (!apiKey) {
-    throw new Error('NEWS_API_KEY missing in environment');
+    console.warn('NEWS_API_KEY missing in environment');
+    return '';
   }
 
   const newsTopics = [
@@ -185,18 +352,7 @@ const fetchNews = async () => {
 };
 
 const generateQuizFromNews = async (news) => {
-
-  ensureOpenAi();
-
-  if (!openAi) {
-    console.warn('OpenAI not configured');
-    return [];
-  }
-
-  try {
-    const res = await openAi.responses.create({
-      model: "gpt-5-mini",
-      input: `
+  const parsed = await callOpenAiJson(`
 You are an Expert Current Affairs Quiz Generator.
 
 TASK:
@@ -265,47 +421,24 @@ IMPORTANT:
 
 NEWS:
 ${news}
-`
-    });
+`, 'Current Affairs');
 
-    const text = res?.output_text;
-    let parsed;
-    // console.log("RAW AI RESPONSE:\n", text,JSON.stringify(res));
-    try {
-      parsed = JSON.parse(text);
-    } catch (err) {
-      console.error("JSON parse failed:", text);
-      return [];
-    }
-
-    console.log("Parsed GK Questions:\n", parsed?.English, "======>>>", parsed);
-
-
-    // if (!Array.isArray(parsed)) {
-    //   console.error("Invalid format");
-    //   return [];
-    // }
-
-    // 🔥 MAIN FIX
-    const englishQuestions = parsed?.English;
-    const hindiQuestions = parsed?.Hindi;
-    const punjabiQuestions = parsed?.Punjabi;
-    return {
-      English: shuffleAndFormatQuiz(englishQuestions),
-      Hindi: shuffleAndFormatQuiz(hindiQuestions),
-      Punjabi: shuffleAndFormatQuiz(punjabiQuestions)
-    }
-    // return shuffleAndFormatQuiz(parsed);
-
-  } catch (err) {
-    console.error('OpenAI error:', err);
-    return [];
+  if (!parsed) {
+    return null;
   }
+
+  const englishQuestions = parsed?.English;
+  const hindiQuestions = parsed?.Hindi;
+  const punjabiQuestions = parsed?.Punjabi;
+
+  return {
+    English: shuffleAndFormatQuiz(englishQuestions),
+    Hindi: shuffleAndFormatQuiz(hindiQuestions),
+    Punjabi: shuffleAndFormatQuiz(punjabiQuestions)
+  };
 };
 
 const saveQuiz = async (data, key, title) => {
-
-  const todayId = new Date()?.toISOString()?.split('T')[0];
   const payload = {
     questions: data,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -315,6 +448,8 @@ const saveQuiz = async (data, key, title) => {
     ...payload,
     title: `${title}`,
   });
+
+  console.log(`[saveQuiz] ${key} saved`, getQuizLanguageCounts(data));
 };
 
 // ✅ Send Notifications
@@ -339,13 +474,12 @@ export const sendNotifications = async () => {
   }
 
 
-
   const res = await messaging.sendEachForMulticast({
     ...message,
     tokens,
   });
 
-  console.log(`${res.successCount} notifications sent`);
+  console.log(`${res?.successCount} notifications sent`);
   return {
     successCount: res.successCount,
     failureCount: res.failureCount,
@@ -353,136 +487,84 @@ export const sendNotifications = async () => {
 };
 
 const generateTrickyQuestion = async () => {
-  ensureOpenAi();
-  if (!openAi) {
-    console.warn('OpenAI not configured');
-    return [];
+  const parsed = await callOpenAiJson(trickyQuestionPrompt, 'Tricky Questions');
+
+  if (!parsed) {
+    return null;
   }
 
-  try {
-    const res = await openAi.responses.create({
-      model: "gpt-5-mini",
-      input: trickyQuestionPrompt
-    });
-    const text = res?.output_text;
-    let parsed;
-    try {
-      parsed = JSON.parse(text);
-    } catch (err) {
-      console.error("JSON parse failed:", text);
-      return [];
-    }
+  const englishQuestions = Array.isArray(parsed?.English) ? parsed?.English : [];
+  const hindiQuestions = Array.isArray(parsed?.Hindi) ? parsed?.Hindi : [];
+  const punjabiQuestions = Array.isArray(parsed?.Punjabi) ? parsed?.Punjabi : [];
 
-    const englishQuestions = Array.isArray(parsed?.English) ? parsed?.English : [];
-    const hindiQuestions = Array.isArray(parsed?.Hindi) ? parsed?.Hindi : [];
-    const punjabiQuestions = Array.isArray(parsed?.Punjabi) ? parsed?.Punjabi : [];
-
-    return {
-      English: shuffleAndFormatQuiz(englishQuestions),
-      Hindi: shuffleAndFormatQuiz(hindiQuestions),
-      Punjabi: shuffleAndFormatQuiz(punjabiQuestions)
-    }
-
-
-    // return shuffleAndFormatQuiz(parsed);
-
-  } catch (err) {
-    console.error('OpenAI error:', err);
-    return [];
-  }
+  return {
+    English: shuffleAndFormatQuiz(englishQuestions),
+    Hindi: shuffleAndFormatQuiz(hindiQuestions),
+    Punjabi: shuffleAndFormatQuiz(punjabiQuestions)
+  };
 };
 
 
 const generateGeneralKnowledgeQuestion = async () => {
+  const parsed = await callOpenAiJson(generalKnowledgePrompt, 'General Knowledge');
 
-  ensureOpenAi();
-
-  if (!openAi) {
-    console.warn('OpenAI not configured');
-    return [];
+  if (!parsed) {
+    return null;
   }
 
-  try {
-    const res = await openAi.responses.create({
-      model: "gpt-5-mini",
-      input: generalKnowledgePrompt
-    });
-    const text = res?.output_text;
-    console.log("RAW AI Tricky RESPONSE:\n", text);
-    let parsed;
-    try {
-      parsed = JSON.parse(text);
-    } catch (err) {
-      console.error("JSON parse failed:", text);
-      return [];
-    }
-
-    // if (!Array.isArray(parsed)) {
-    //   console.error("Invalid format");
-    //   return [];
-    // }
-    const englishQuestions = parsed?.English;
-    const hindiQuestions = parsed?.Hindi;
-    const punjabiQuestions = parsed?.Punjabi;
-    return {
-      English: shuffleAndFormatQuiz(englishQuestions),
-      Hindi: shuffleAndFormatQuiz(hindiQuestions),
-      Punjabi: shuffleAndFormatQuiz(punjabiQuestions)
-    }
-
-    // shuffleAndFormatQuiz(parsed?.English);
-
-
-    return
-
-  } catch (err) {
-    console.error('OpenAI error:', err);
-    return [];
-  }
+  const englishQuestions = parsed?.English;
+  const hindiQuestions = parsed?.Hindi;
+  const punjabiQuestions = parsed?.Punjabi;
+  return {
+    English: shuffleAndFormatQuiz(englishQuestions),
+    Hindi: shuffleAndFormatQuiz(hindiQuestions),
+    Punjabi: shuffleAndFormatQuiz(punjabiQuestions)
+  };
 };
 
 const generateEnglishQuestion = async () => {
-  ensureOpenAi();
-  if (!openAi) {
-    console.warn('OpenAI not configured');
-    return [];
+  const parsed = await callOpenAiJson(generateEnglishQuestionPrompt, 'English Quiz');
+
+  if (!parsed) {
+    return null;
   }
 
-  try {
-    const res = await openAi.responses.create({
-      model: "gpt-5-mini",
-      input: generateEnglishQuestionPrompt
-    });
-    const text = res?.output_text;
-    let parsed;
-    try {
-      parsed = JSON.parse(text);
-    } catch (err) {
-      console.error("JSON parse failed:", text);
-      return [];
-    }
+  const englishQuestions = Array.isArray(parsed?.Questions) ? parsed?.Questions : [];
 
-    const englishQuestions = Array.isArray(parsed?.Questions) ? parsed?.Questions : [];
-
-    return {
-      English: shuffleAndFormatQuiz(englishQuestions),
-    }
-
-
-    // return shuffleAndFormatQuiz(parsed);
-
-  } catch (err) {
-    console.error('OpenAI error:', err);
-    return [];
-  }
+  return {
+    English: shuffleAndFormatQuiz(englishQuestions),
+  };
 }
 
+const generateChildQuizz = async () => {
+  const parsed = await callOpenAiJsonWithOptions({
+    label: 'Kids Quiz',
+    model: 'gpt-5-mini',
+    input: kidsKnowledgePrompt,
+  });
 
+  if (!parsed) {
+    console.error('[Kids Quiz] OpenAI returned no parsed JSON');
+    return null;
+  }
 
+  const englishQuestions = Array.isArray(parsed?.English) ? parsed?.English : [];
+  const hindiQuestions = Array.isArray(parsed?.Hindi) ? parsed?.Hindi : [];
 
+  console.log('[Kids Quiz] Parsed counts', {
+    English: englishQuestions.length,
+    Hindi: hindiQuestions.length,
+  });
 
+  const formattedQuiz = {
+    English: shuffleAndFormatQuiz(englishQuestions),
+    Hindi: shuffleAndFormatQuiz(hindiQuestions),
+  };
 
+  console.log('[Kids Quiz] Formatted counts', getQuizLanguageCounts(formattedQuiz));
 
+  return formattedQuiz;
+}
 
 
 
@@ -490,21 +572,16 @@ export const runQuizProcess = async ({ label = 'manual', sendNotification = fals
 
   try {
     ensureFirebase();
+    const processStartedAt = Date.now();
 
     const news = await fetchNews();
-    if (!news) {
-      return {
-        success: false,
-        message: 'No news articles found',
-      };
-    }
 
     const generationJobs = [
       {
         key: 'CURRENT_AFFAIRS',
         title: 'Current Affairs',
         label: 'Current Affairs',
-        run: () => generateQuizFromNews(news),
+        run: () => (news ? generateQuizFromNews(news) : null),
       },
       {
         key: 'PUZZLES',
@@ -519,40 +596,78 @@ export const runQuizProcess = async ({ label = 'manual', sendNotification = fals
         run: () => generateGeneralKnowledgeQuestion(),
       },
       {
+        key: 'KIDS_QUESTIONS',
+        title: 'Kids Quiz',
+        label: 'Kids Quiz',
+
+        run: () => generateChildQuizz(),
+      },
+      {
         key: 'ENG_QUESTIONS',
         title: 'English Quiz',
         label: 'English Quiz',
         run: () => generateEnglishQuestion(),
       },
+
     ];
 
-    const generationResults = await Promise.all(
-      generationJobs.map(async (job) => {
-        const quizData = await job.run();
-        const englishCount = quizData?.English?.length ?? 0;
+    const generationResults = [];
 
-        if (!englishCount) {
-          throw new Error(`${job.label} failed`);
+    for (const job of generationJobs) {
+      const jobStartedAt = Date.now();
+      let quizData = null;
+      let source = 'generated';
+
+      try {
+        quizData = await job.run();
+      } catch (error) {
+        console.error(`${job.label} generation crashed:`, error?.message ?? error);
+      }
+
+      console.log(`[${job.label}] Generated counts`, getQuizLanguageCounts(quizData));
+
+      if (hasValidQuizData(quizData)) {
+        await saveQuiz(quizData, job.key, job.title);
+      } else {
+        const storedQuiz = await getStoredQuiz(job.key);
+
+        if (!hasValidQuizData(storedQuiz)) {
+          throw new Error(`${job.label} failed and no cached quiz exists`);
         }
 
-        await saveQuiz(quizData, job.key, job.title);
+        quizData = storedQuiz;
+        source = 'fallback';
+        console.warn(`${job.label} reused cached quiz data`);
+        console.log(`[${job.label}] Fallback counts`, getQuizLanguageCounts(quizData));
+      }
 
-        return {
-          label: job.label,
-          count: englishCount,
-        };
-      })
-    );
+      generationResults.push({
+        label: job.label,
+        count: getQuestionCount(quizData),
+        source,
+        durationMs: Date.now() - jobStartedAt,
+      });
+
+      console.log(
+        `[${job.label}] Completed in ${Date.now() - jobStartedAt}ms via ${source}`
+      );
+    }
 
     console.log('Generated quizzes:', generationResults);
+
+    const fallbackCount = generationResults.filter((result) => result.source === 'fallback')?.length;
 
     if (sendNotification) {
       await sendNotifications();
     }
     return {
       success: true,
-      message: `Quiz created (${label})`,
+      message: fallbackCount
+        ? `Quiz created (${label}) with ${fallbackCount} cached fallback(s)`
+        : `Quiz created (${label})`,
       notificationsSent: Boolean(sendNotification),
+      durationMs: Date.now() - processStartedAt,
+      results: generationResults,
     };
 
   } catch (err) {
@@ -564,25 +679,6 @@ export const runQuizProcess = async ({ label = 'manual', sendNotification = fals
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   runQuizProcess({ label: 'api-call' });
 }
-
-// export default async function handler(req, res) {
-//   try {
-//     // const secret = req.query?.secret; // must get from query param
-//     // if (!secret || secret !== process.env.CRON_SECRET) {
-//     //   return res.status(401).json({ success: false, message: 'Unauthorized' });
-//     // }
-
-//     console.log("Cron job triggered");
-
-//     const result = await runQuizProcess({ label: 'vercel-cron' });
-
-//     return res.status(200).json(result);
-
-//   } catch (error) {
-//     console.error("Cron error:", error);
-//     return res.status(500).json({ success: false, message: 'Internal error' });
-//   }
-// }
 
 
 const message = {
@@ -627,174 +723,256 @@ const message = {
 };
 
 const trickyQuestionPrompt = `
-You are an Expert Generator of Tricky Quiz Questions.
+You are a High-Entropy Tricky Quiz Generator.
+
+UNIQUENESS MODE: ENABLED
+Each request MUST generate completely new questions.
+
+Generate using:
+- different numbers
+- different names
+- different objects
+- different logic traps
+- different reasoning patterns
+- different domains emphasis
+
+Never use classic puzzles:
+bat and ball
+clock angle
+train crossing
+coin toss
+water jug
+age puzzle
+percentage trick classics
 
 TASK:
-Generate exactly 10 tricky multiple-choice questions.
+Generate exactly 10 tricky MCQs.
 
 LANGUAGE RULE:
-- Each question must exist in THREE languages: English, Hindi, and Punjabi.
-- English[i], Hindi[i], and Punjabi[i] MUST represent the SAME question and answers.
-- Hindi and Punjabi must be accurate translations of English (question, options, correctAnswer).
-- Keep EXACT SAME ORDER in all three arrays.
+Each question must exist in English, Hindi, Punjabi.
+All three must match exactly.
+Same order required.
 
-DIFFICULTY RULE (VERY IMPORTANT):
-- Questions must be MEDIUM to HARD difficulty ONLY.
-- Avoid simple or obvious questions.
-- Focus on:
-  - Logical traps
-  - Multi-step reasoning
-  - Misconceptions
-  - Numerical tricks
-  - Real-life tricky cases
-- 5 questions = Medium
-- 5 questions = Hard
+DIFFICULTY:
+5 medium
+5 hard
 
-DOMAINS (must cover at least 3):
-- Math
-- Science
-- Everyday Life
-- Logic / Brain Teasers
+DOMAINS:
+Math
+Science
+Logic
+Everyday Life
 
 STRICT RULES:
-- Return ONLY valid JSON object.
-- Do NOT include explanation or extra text.
-- Do NOT use markdown or backticks.
-- Each question must have exactly 4 unique options.
-- Do NOT label A/B/C/D.
-- "correctAnswer" must EXACTLY match one option.
-- Questions must NOT be commonly repeated.
-- Wrong options should be very close to correct answer.
+Return JSON only
+No explanation
+4 options
+correctAnswer exact match
+No repetition
 
-RANDOMIZATION RULE:
-- Shuffle categories internally
-- Shuffle answer order
-- Use different topics each time
-- Use different difficulty distribution order
-- Use different years and statistics
+RANDOMIZATION:
+Use new numbers each time
+Use new scenarios each time
+Shuffle option order
+Shuffle domains
+Use new reasoning traps
 
-OUTPUT FORMAT (STRICT):
-
+OUTPUT:
 {
-  "English": [
-    {
-      "difficulty": "medium | hard",
-      "question": "string",
-      "options": ["option1","option2","option3","option4"],
-      "correctAnswer": "exact option text"
-    }
-  ],
-  "Hindi": [
-    {
-      "difficulty": "same as English[i]",
-      "question": "translated question",
-      "options": ["translated option1","translated option2","translated option3","translated option4"],
-      "correctAnswer": "exact translated correct option text"
-    }
-  ],
-  "Punjabi": [
-    {
-      "difficulty": "same as English[i]",
-      "question": "Punjabi translation (Gurmukhi script)",
-      "options": ["translated option1","translated option2","translated option3","translated option4"],
-      "correctAnswer": "exact translated correct option text"
-    }
-  ]
+"English":[...],
+"Hindi":[...],
+"Punjabi":[...]
 }
 
-IMPORTANT:
-- Total = 10 questions in each language (English, Hindi, Punjabi)
-- English[i], Hindi[i], Punjabi[i] MUST exactly match
-- Maintain SAME order across all arrays
-- Maintain difficulty split (5 medium, 5 hard)
-- Ensure Punjabi uses proper Gurmukhi script (not Hindi/romanized)
-- If output is not valid JSON, regenerate
+If similar to common quizzes regenerate.
 `;
 
 const generalKnowledgePrompt = `
-You are an Expert in Generating General Knowledge Questions.
+You are a High-Entropy General Knowledge Generator.
+
+UNIQUENESS MODE: STRICT
+Generate completely NEW questions every request.
+
+Avoid:
+common GK
+textbook facts
+capital-city basics
+founder questions
+simple history facts
+
+Prefer:
+rare facts
+recent developments
+lesser-known info
+analytical GK
 
 TASK:
-Generate exactly 25 multiple-choice questions.
+Generate exactly 25 MCQs.
 
 LANGUAGE RULE:
-- Each question must exist in THREE languages: English, Hindi, and Punjabi.
-- English[i], Hindi[i], and Punjabi[i] MUST represent the SAME question and answers (1-to-1 mapping).
-- Hindi and Punjabi must be accurate translations of English (question, options, correctAnswer).
-- Keep EXACT SAME ORDER in all three arrays.
+English Hindi Punjabi
+must match 1-to-1
+same order
 
-DIFFICULTY RULE:
-- Questions must be MEDIUM to HARD only.
-- Avoid simple or common questions.
-- Focus on tricky facts, reasoning, and close-answer confusion.
-- 12 questions = Medium
-- 13 questions = Hard
+DIFFICULTY:
+medium to hard
 
-CATEGORIES (TOTAL 25 QUESTIONS):
-- India (4)
-- World (4)
-- Politics (4)
-- Economy (3)
-- Technology (3)
-- Science (3)
-- Health (2)
-- Entertainment (1)
-- Sports (1)
+CATEGORIES:
+India (4)
+World (4)
+Politics (4)
+Economy (3)
+Technology (3)
+Science (3)
+Health (2)
+Entertainment (1)
+Sports (1)
 
-STRICT RULES:
-- Return ONLY valid JSON object.
-- Do NOT add explanation or text.
-- Do NOT use markdown or backticks.
-- Each question must have exactly 4 unique options.
-- Do NOT label A/B/C/D.
-- "correctAnswer" must EXACTLY match one option.
-- Questions must NOT be commonly repeated.
-- Wrong options should be very close to correct answer.
+RANDOMIZATION:
+shuffle categories
+different years
+different rankings
+different reports
+different phrasing
+different entities
 
-RANDOMIZATION RULE:
-- Shuffle categories internally
-- Shuffle answer order
-- Use different topics each time
-- Use different difficulty distribution order
-- Use different years and statistics
+STRICT:
+JSON only
+4 options
+no explanation
+correctAnswer exact match
 
-OUTPUT FORMAT (STRICT):
-
+OUTPUT:
 {
-  "English": [
-    {
-      "category": "India | World | Politics | Economy | Technology | Science | Health | Entertainment | Sports",
-      "difficulty": "medium | hard",
-      "question": "string",
-      "options": ["option1","option2","option3","option4"],
-      "correctAnswer": "exact option text"
-    }
-  ],
-  "Hindi": [
-    {
-      "category": "same as English[i]",
-      "difficulty": "same as English[i]",
-      "question": "translated question",
-      "options": ["translated option1","translated option2","translated option3","translated option4"],
-      "correctAnswer": "exact translated correct option text"
-    }
-  ],
-  "Punjabi": [
-    {
-      "category": "same as English[i]",
-      "difficulty": "same as English[i]",
-      "question": "Punjabi translation (Gurmukhi script)",
-      "options": ["translated option1","translated option2","translated option3","translated option4"],
-      "correctAnswer": "exact translated correct option text"
-    }
-  ]
+"English":[],
+"Hindi":[],
+"Punjabi":[]
 }
 
-IMPORTANT:
-- Total = 25 questions in each language
-- English[i], Hindi[i], Punjabi[i] MUST exactly match
-- Keep SAME order across all arrays
-- Maintain category + difficulty distribution
-- Punjabi MUST be in proper Gurmukhi script (not Hindi/romanized)
-- If output is invalid JSON, regenerate
+If duplicate patterns regenerate.
+`;
+
+const generateEnglishQuestionPrompt = `
+You are an Advanced English Grammar Quiz Generator.
+
+UNIQUENESS MODE: STRICT
+
+Generate completely NEW grammar questions.
+
+Avoid common examples:
+If I were you
+She has been working
+Neither of the boys
+He did not went
+
+TASK:
+Generate exactly 25 MCQs.
+
+DIFFICULTY:
+easy → medium → hard → expert
+
+TOPICS:
+tenses
+articles
+prepositions
+voice
+speech
+conditionals
+modals
+error correction
+sentence improvement
+vocabulary
+idioms
+advanced grammar
+agreement
+parallelism
+punctuation
+
+RANDOMIZATION:
+different sentence structures
+different verbs
+different subjects
+different contexts
+different grammar traps
+
+STRICT:
+JSON only
+4 options
+correctAnswer exact match
+no explanation
+
+OUTPUT:
+{
+"Questions":[]
+}
+
+If similar regenerate.
+`;
+
+const kidsKnowledgePrompt = `
+You are a Kids Quiz Generator (Class 1-5).
+
+UNIQUENESS MODE: STRICT
+Generate completely NEW fun questions each request.
+
+TASK:
+Generate exactly 25 MCQs.
+
+TOPICS:
+Geography
+Math
+English
+Hindi
+Sports
+Animals
+Cartoons
+Computer
+Science
+
+DIFFICULTY:
+easy to medium
+
+LANGUAGE OUTPUT FORMAT:
+English Hindi 
+same order
+same mapping
+
+LANGUAGE RULES (VERY IMPORTANT):
+- English subject question MUST be in English
+- Hindi subject question MUST be in Hindi
+- Math questions can be in English
+- Science questions can be in English
+- Computer questions can be in English
+- Geography questions can be in English
+- DO NOT mix languages inside one question
+- Options must match the question language
+- correctAnswer must match option text exactly
+
+STYLE:
+fun
+visual imagination
+odd one out
+simple logic
+everyday life
+
+RANDOMIZATION:
+different animals
+different sports
+different objects
+different numbers
+different examples
+
+STRICT:
+JSON only
+4 options
+no explanation
+correctAnswer exact match
+
+OUTPUT:
+{
+"English": [],
+"Hindi": [],
+}
+
+If similar regenerate.
 `;

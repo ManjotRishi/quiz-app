@@ -51,6 +51,7 @@ const EnglishQuizz = ({ navigation }) => {
       showEnglishPill={false}
       showLanguageSection={false}
       showCompactEnglishButton={false}
+      showBanner
       compactControls
       {...quizBoard}
     />

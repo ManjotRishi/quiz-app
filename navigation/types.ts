@@ -5,12 +5,13 @@ export type RootStackParamList = {
   [ROUTES.Home]: undefined;
   [ROUTES.QuizBoard]: undefined;
   [ROUTES.EnglishQuizz]: undefined;
+  [ROUTES.ChildQuizz]: undefined;
   [ROUTES.GkBoard]: undefined;
   [ROUTES.TrickeyQuestions]: undefined;
   [ROUTES.More]: undefined;
   [ROUTES.Score]: {
-    quizType: 'quizzes' | 'puzzles' | 'gk' | 'ca' | 'tc' | 'currentAffairs' | 'english';
-    quizLabel?: 'GK' | 'CA' | 'Puzzles' | 'English Quizz';
+    quizType: 'quizzes' | 'puzzles' | 'gk' | 'ca' | 'tc' | 'currentAffairs' | 'english' | 'child';
+    quizLabel?: 'GK' | 'CA' | 'Puzzles' | 'English Quizz' | 'Child Quizz';
     totalQuestions: number;
     correctAnswers: number;
     wrongAnswers: number;
