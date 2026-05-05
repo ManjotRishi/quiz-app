@@ -4,6 +4,12 @@ D:\QUIZZ\quiz-app\android\app\.cxx\Debug\3d674c31\x86\RNCNetInfoSpec_autolinked_
 D:\QUIZZ\quiz-app\android\app\.cxx\Debug\3d674c31\x86\RNCNetInfoSpec_autolinked_build\CMakeFiles\react_codegen_RNCNetInfoSpec.dir\react\renderer\components\RNCNetInfoSpec\Props.cpp.o
 D:\QUIZZ\quiz-app\android\app\.cxx\Debug\3d674c31\x86\RNCNetInfoSpec_autolinked_build\CMakeFiles\react_codegen_RNCNetInfoSpec.dir\react\renderer\components\RNCNetInfoSpec\ShadowNodes.cpp.o
 D:\QUIZZ\quiz-app\android\app\.cxx\Debug\3d674c31\x86\RNCNetInfoSpec_autolinked_build\CMakeFiles\react_codegen_RNCNetInfoSpec.dir\react\renderer\components\RNCNetInfoSpec\States.cpp.o
+D:\QUIZZ\quiz-app\android\app\.cxx\Debug\3d674c31\x86\FileAccessSpec_autolinked_build\CMakeFiles\react_codegen_FileAccessSpec.dir\FileAccessSpec-generated.cpp.o
+D:\QUIZZ\quiz-app\android\app\.cxx\Debug\3d674c31\x86\FileAccessSpec_autolinked_build\CMakeFiles\react_codegen_FileAccessSpec.dir\react\renderer\components\FileAccessSpec\ComponentDescriptors.cpp.o
+D:\QUIZZ\quiz-app\android\app\.cxx\Debug\3d674c31\x86\FileAccessSpec_autolinked_build\CMakeFiles\react_codegen_FileAccessSpec.dir\react\renderer\components\FileAccessSpec\EventEmitters.cpp.o
+D:\QUIZZ\quiz-app\android\app\.cxx\Debug\3d674c31\x86\FileAccessSpec_autolinked_build\CMakeFiles\react_codegen_FileAccessSpec.dir\react\renderer\components\FileAccessSpec\Props.cpp.o
+D:\QUIZZ\quiz-app\android\app\.cxx\Debug\3d674c31\x86\FileAccessSpec_autolinked_build\CMakeFiles\react_codegen_FileAccessSpec.dir\react\renderer\components\FileAccessSpec\ShadowNodes.cpp.o
+D:\QUIZZ\quiz-app\android\app\.cxx\Debug\3d674c31\x86\FileAccessSpec_autolinked_build\CMakeFiles\react_codegen_FileAccessSpec.dir\react\renderer\components\FileAccessSpec\States.cpp.o
 D:\QUIZZ\quiz-app\android\app\.cxx\Debug\3d674c31\x86\rngesturehandler_codegen_autolinked_build\CMakeFiles\react_codegen_rngesturehandler_codegen.dir\react\renderer\components\rngesturehandler_codegen\ComponentDescriptors.cpp.o
 D:\QUIZZ\quiz-app\android\app\.cxx\Debug\3d674c31\x86\rngesturehandler_codegen_autolinked_build\CMakeFiles\react_codegen_rngesturehandler_codegen.dir\react\renderer\components\rngesturehandler_codegen\EventEmitters.cpp.o
 D:\QUIZZ\quiz-app\android\app\.cxx\Debug\3d674c31\x86\rngesturehandler_codegen_autolinked_build\CMakeFiles\react_codegen_rngesturehandler_codegen.dir\react\renderer\components\rngesturehandler_codegen\Props.cpp.o
@@ -34,6 +40,12 @@ D:\QUIZZ\quiz-app\android\app\.cxx\Debug\3d674c31\x86\rnreanimated_autolinked_bu
 D:\QUIZZ\quiz-app\android\app\.cxx\Debug\3d674c31\x86\rnreanimated_autolinked_build\CMakeFiles\react_codegen_rnreanimated.dir\react\renderer\components\rnreanimated\ShadowNodes.cpp.o
 D:\QUIZZ\quiz-app\android\app\.cxx\Debug\3d674c31\x86\rnreanimated_autolinked_build\CMakeFiles\react_codegen_rnreanimated.dir\react\renderer\components\rnreanimated\States.cpp.o
 D:\QUIZZ\quiz-app\android\app\.cxx\Debug\3d674c31\x86\rnreanimated_autolinked_build\CMakeFiles\react_codegen_rnreanimated.dir\rnreanimated-generated.cpp.o
+D:\QUIZZ\quiz-app\android\app\.cxx\Debug\3d674c31\x86\RNShareSpec_autolinked_build\CMakeFiles\react_codegen_RNShareSpec.dir\RNShareSpec-generated.cpp.o
+D:\QUIZZ\quiz-app\android\app\.cxx\Debug\3d674c31\x86\RNShareSpec_autolinked_build\CMakeFiles\react_codegen_RNShareSpec.dir\react\renderer\components\RNShareSpec\ComponentDescriptors.cpp.o
+D:\QUIZZ\quiz-app\android\app\.cxx\Debug\3d674c31\x86\RNShareSpec_autolinked_build\CMakeFiles\react_codegen_RNShareSpec.dir\react\renderer\components\RNShareSpec\EventEmitters.cpp.o
+D:\QUIZZ\quiz-app\android\app\.cxx\Debug\3d674c31\x86\RNShareSpec_autolinked_build\CMakeFiles\react_codegen_RNShareSpec.dir\react\renderer\components\RNShareSpec\Props.cpp.o
+D:\QUIZZ\quiz-app\android\app\.cxx\Debug\3d674c31\x86\RNShareSpec_autolinked_build\CMakeFiles\react_codegen_RNShareSpec.dir\react\renderer\components\RNShareSpec\ShadowNodes.cpp.o
+D:\QUIZZ\quiz-app\android\app\.cxx\Debug\3d674c31\x86\RNShareSpec_autolinked_build\CMakeFiles\react_codegen_RNShareSpec.dir\react\renderer\components\RNShareSpec\States.cpp.o
 D:\QUIZZ\quiz-app\android\app\.cxx\Debug\3d674c31\x86\RNSoundSpec_autolinked_build\CMakeFiles\react_codegen_RNSoundSpec.dir\RNSoundSpec-generated.cpp.o
 D:\QUIZZ\quiz-app\android\app\.cxx\Debug\3d674c31\x86\RNSoundSpec_autolinked_build\CMakeFiles\react_codegen_RNSoundSpec.dir\react\renderer\components\RNSoundSpec\ComponentDescriptors.cpp.o
 D:\QUIZZ\quiz-app\android\app\.cxx\Debug\3d674c31\x86\RNSoundSpec_autolinked_build\CMakeFiles\react_codegen_RNSoundSpec.dir\react\renderer\components\RNSoundSpec\EventEmitters.cpp.o

@@ -5,14 +5,14 @@ import {
   InterstitialAd,
   TestIds,
 } from 'react-native-google-mobile-ads';
-
-const DEFAULT_KEYWORDS = ['fashion', 'clothing'];
+import { INTENTIALID } from '../util/constants';
+import { DEFAULT_FULL_SCREEN_REQUEST_OPTIONS } from '../util/adMobConfig';
 
 const shownPlacements = new Map();
 
 export const useInterstitialAd = ({
   adUnitId,
-  keywords = DEFAULT_KEYWORDS,
+  requestOptions = DEFAULT_FULL_SCREEN_REQUEST_OPTIONS,
   useTestIds = __DEV__,
 } = {}) => {
   const [loaded, setLoaded] = useState(false);
@@ -32,11 +32,11 @@ export const useInterstitialAd = ({
       return TestIds.INTERSTITIAL;
     }
 
-    return adUnitId ?? null;
+    return adUnitId ?? INTENTIALID ?? null;
   }, [adUnitId, useTestIds]);
 
   const removeListeners = useCallback(() => {
-    cleanupRef.current.forEach((unsubscribe) => {
+    (cleanupRef.current ?? []).forEach((unsubscribe) => {
       try {
         unsubscribe?.();
       } catch (error) {
@@ -56,10 +56,15 @@ export const useInterstitialAd = ({
     }
 
     if (!interstitialRef.current) {
-      interstitialRef.current = InterstitialAd.createForAdRequest(
-        resolvedAdUnitId,
-        { keywords }
-      );
+      try {
+        interstitialRef.current = InterstitialAd.createForAdRequest(
+          resolvedAdUnitId,
+          requestOptions
+        );
+      } catch (error) {
+        console.warn('[useInterstitialAd] Failed to create interstitial ad:', error);
+        return null;
+      }
 
       const interstitial = interstitialRef.current;
 
@@ -78,7 +83,13 @@ export const useInterstitialAd = ({
           const { placementKey } = pendingShowRef.current;
           pendingShowRef.current = null;
           shownPlacements.set(placementKey, Date.now());
-          interstitial.show();
+          try {
+            interstitial.show();
+          } catch (error) {
+            console.warn('[useInterstitialAd] Failed to show loaded interstitial:', error);
+            loadedRef.current = false;
+            setLoaded(false);
+          }
         })
       );
 
@@ -133,7 +144,7 @@ export const useInterstitialAd = ({
     }
 
     return interstitialRef.current;
-  }, [keywords, resolvedAdUnitId]);
+  }, [requestOptions, resolvedAdUnitId]);
 
   useEffect(() => {
     isActiveRef.current = true;
@@ -159,7 +170,12 @@ export const useInterstitialAd = ({
     if (loadedRef.current || isLoadingRef.current) return;
 
     isLoadingRef.current = true;
-    interstitial.load();
+    try {
+      interstitial.load();
+    } catch (error) {
+      console.warn('[useInterstitialAd] Failed to load interstitial ad:', error);
+      isLoadingRef.current = false;
+    }
   }, [ensureInterstitial]);
 
   const startAdv = useCallback(
@@ -204,7 +220,14 @@ export const useInterstitialAd = ({
 
         pendingShowRef.current = null;
         shownPlacements.set(placementKey, Date.now());
-        interstitial.show();
+        try {
+          interstitial.show();
+        } catch (error) {
+          console.warn('[useInterstitialAd] Failed to show interstitial ad:', error);
+          loadedRef.current = false;
+          setLoaded(false);
+          isLoadingRef.current = false;
+        }
       };
 
       if (loadedRef.current) {
@@ -216,7 +239,14 @@ export const useInterstitialAd = ({
 
       if (!isLoadingRef.current) {
         isLoadingRef.current = true;
-        interstitial.load();
+        try {
+          interstitial.load();
+        } catch (error) {
+          console.warn('[useInterstitialAd] Failed to request interstitial load:', error);
+          isLoadingRef.current = false;
+          pendingShowRef.current = null;
+          return false;
+        }
       }
 
       return true;

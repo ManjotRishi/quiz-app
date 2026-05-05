@@ -53,6 +53,7 @@ const QuizBoard = ({ navigation }) => {
       compactControls
       isLastQuestion={quizBoard.isLastQuestion}
       handleNext={quizBoard.handleNext}
+      handlePrevious={quizBoard.handlePrevious}
       {...quizBoard}
     />
   );

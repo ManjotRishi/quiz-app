@@ -28,6 +28,21 @@ Sends notifications only.
 - Used by the morning and evening cron jobs
 - Also safe to hit manually from the browser
 
+### `POST /api/validatePost`
+
+Validates a post with OpenAI and stores approved content in Firestore collection `POST`.
+
+- Request body: `{ "content": "your post text" }`
+- Returns only simple JSON:
+  - Valid: `{ "success": true, "title": "Short generated title", "content": "ok" }`
+  - Invalid: `{ "success": false, "title": "", "content": "Reason why this post is not allowed" }`
+
+### `GET /api/health`
+
+Quick backend availability check for the mobile app and local testing.
+
+- Returns: `{ "success": true, "service": "backend", "status": "ok", "timestamp": "..." }`
+
 ## Cron Schedule
 
 All cron schedules in Vercel use UTC.
@@ -75,6 +90,12 @@ Inside the `backend` folder:
 
 ```bash
 npm install
+```
+
+To start a local dev server for app API routes:
+
+```bash
+npm run dev:server
 ```
 
 To test the quiz generation script locally:

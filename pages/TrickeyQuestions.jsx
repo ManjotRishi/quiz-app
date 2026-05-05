@@ -19,20 +19,24 @@ import Animated, {
 import { useIsFocused } from '@react-navigation/native';
 import { useNetInfo } from '@react-native-community/netinfo';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import messaging from '@react-native-firebase/messaging';
 import firestore from '@react-native-firebase/firestore';
+import BottomBanner from '../components/BottomBanner';
 import QuizRemotePad from '../components/QuizRemotePad';
 import QuestionClock from '../components/QuestionClock';
 import TimeOverOverlay from '../components/TimeOverOverlay';
-import StartQuizOverlay from '../components/StartQuizOverlay';
-import { BackIcon, CurrentAffairsIcon, EnglishQuizIcon, HomeIcon, SpeakerIcon } from '../components/icons';
+import {
+  BackIcon,
+  ClockIcon,
+  HomeIcon,
+  VoiceIcon,
+} from '../components/icons';
 import { OptionTile } from '../components/OptionTile';
+import QuestionExportControls from '../components/QuestionExportControls';
 import QuizLoader from '../animation/QuizLoader';
 import AnimationListWraper from '../animation/AnimationListWraper';
 import LanguageSwitcher from '../components/LanguageSwitcher';
 import { colors } from '../style/colors';
 import {
-  COLLECTION_NAME,
   INITIAL_TIME,
   LISTINGDOC,
   PUZZLESCOLLECTION,
@@ -45,8 +49,12 @@ import { calculateAccuracy, formatTimer } from '../util/functions';
 import { getAvailableLanguage, getLanguageQuestions } from '../util/language';
 import NetworkIssueOverlay from '../components/NetworkIssueOverlay';
 import { loadWithTimeout } from '../util/loadWithTimeout';
-import { recordQuizResult } from '../util/quizStats';
+import { syncQuizProgress } from '../util/quizStats';
 import { ROUTES } from '../navigation/routes';
+import { resetToHomeScreen } from '../util/navigation';
+import { useAdManager } from '../hooks/useAdManager';
+import { useFavouriteQuestion } from '../hooks/useFavouriteQuestion';
+import { exportQuestionTextFile } from '../util/questionExport';
 
 const getRandomMessage = (arr = []) => arr[Math.floor(Math.random() * arr.length)];
 
@@ -90,7 +98,7 @@ const resolveCorrectOption = (question) => {
   return prefixedMatch ?? null;
 };
 
-const LOAD_TIMEOUT_MS = 15000;
+const LOAD_TIMEOUT_MS = 30000;
 
 const TrickeyQuestions = ({ navigation }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -108,13 +116,37 @@ const TrickeyQuestions = ({ navigation }) => {
   const [quizError, setQuizError] = useState(null);
   const [isSoundMuted, setIsSoundMuted] = useState(false);
   const [showTimeOver, setShowTimeOver] = useState(false);
-  const [quizStarted, setQuizStarted] = useState(false);
+  const [quizStarted, setQuizStarted] = useState(true);
   const [showControls, setShowControls] = useState(false);
   const isFocused = useIsFocused();
   const netInfo = useNetInfo();
   const timeOverHandledRef = useRef(false);
   const autoNextTimerRef = useRef(null);
   const isOffline = netInfo.isConnected === false || netInfo.isInternetReachable === false;
+  const sessionIdRef = useRef(`tc-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`);
+  const lastQuizBreakMilestoneRef = useRef(0);
+  const { showInterstitial, showRandomQuizBreakAd } = useAdManager();
+  const tickButtonColors = isSoundMuted ? ['#4B5563', '#6B7280'] : ['#0EA5E9', '#14B8A6'];
+  const favouritePayload = useCallback(() => {
+    if (!question?.question) {
+      return null;
+    }
+
+    return {
+      quizTitle: quizTitle || 'Reasoning',
+      source: 'tricky-questions',
+      questionText: question.question,
+      answerText: correctOption || question?.answer || '',
+      options: question?.options || [],
+      questionNumber: currentIndex + 1,
+      totalQuestions,
+    };
+  }, [correctOption, currentIndex, question, quizTitle, totalQuestions]);
+  const {
+    isFavourite,
+    isSavingFavourite,
+    handleSaveFavourite,
+  } = useFavouriteQuestion({ getPayload: favouritePayload });
 
   const shakeX = useSharedValue(0);
   const showCross = useSharedValue(0);
@@ -213,6 +245,7 @@ const TrickeyQuestions = ({ navigation }) => {
   );
   const totalQuestions = questions.length;
   const question = questions[currentIndex];
+  const attemptedQuestions = correctCount + wrongCount + (selectedOption ? 1 : 0);
   const correctOption = resolveCorrectOption(question);
   const isLastQuestion = currentIndex === totalQuestions - 1;
 
@@ -241,24 +274,41 @@ const TrickeyQuestions = ({ navigation }) => {
       finalTimeTakenSeconds,
     }) => {
       const accuracy = calculateAccuracy(finalCorrectCount, totalQuestions);
-      recordQuizResult({
+      syncQuizProgress({
+        sessionId: sessionIdRef.current,
         quizType: 'tc',
+        totalQuestions,
         correctAnswers: finalCorrectCount,
         wrongAnswers: finalWrongCount,
+        notAttemptedAnswers: finalNotAttemptedCount,
+        isComplete: true,
       });
       navigation.replace(ROUTES.Score, {
         quizType: 'tc',
-        quizLabel: 'Puzzles',
+        quizLabel: 'Reasoning',
         totalQuestions,
         correctAnswers: finalCorrectCount,
         wrongAnswers: finalWrongCount,
         notAttemptedAnswers: finalNotAttemptedCount,
         timeTakenSeconds: finalTimeTakenSeconds,
         accuracy,
+        fromQuizFlow: true,
       });
     },
     [navigation, totalQuestions]
   );
+
+  const handleExitNavigation = useCallback((action) => {
+    const didShow = showInterstitial({
+      placement: 'quiz_exit',
+      attemptedQuestions,
+      onClosed: action,
+    });
+
+    if (!didShow) {
+      action();
+    }
+  }, [attemptedQuestions, showInterstitial]);
 
   const { seconds } = useCountdown({
     start: quizStarted ? INITIAL_TIME : 0,
@@ -384,11 +434,49 @@ const TrickeyQuestions = ({ navigation }) => {
     const nextWrongCount = wrongCount + (hasSelection && !currentCorrect ? 1 : 0);
     const nextNotAttemptedCount = notAttemptedCount + (hasSelection ? 0 : 1);
     const nextTimeSpentSeconds = timeSpentSeconds + spentSeconds;
+    const nextAttemptedQuestions = nextCorrectCount + nextWrongCount;
+
+    syncQuizProgress({
+      sessionId: sessionIdRef.current,
+      quizType: 'tc',
+      totalQuestions,
+      correctAnswers: nextCorrectCount,
+      wrongAnswers: nextWrongCount,
+      notAttemptedAnswers: nextNotAttemptedCount,
+    });
 
     setCorrectCount(nextCorrectCount);
     setWrongCount(nextWrongCount);
     setNotAttemptedCount(nextNotAttemptedCount);
     setTimeSpentSeconds(nextTimeSpentSeconds);
+
+    const milestone =
+      nextAttemptedQuestions > 0 && nextAttemptedQuestions % 5 === 0 ? nextAttemptedQuestions : 0;
+
+    if (milestone > 0) {
+      const { didShow, milestone: shownMilestone } = showRandomQuizBreakAd({
+        attemptedQuestions: milestone,
+        lastShownMilestone: lastQuizBreakMilestoneRef.current,
+        onClosed: () => {
+          if (isLastQuestion) {
+            finishQuiz({
+              finalCorrectCount: nextCorrectCount,
+              finalWrongCount: nextWrongCount,
+              finalNotAttemptedCount: nextNotAttemptedCount,
+              finalTimeTakenSeconds: nextTimeSpentSeconds,
+            });
+          }
+        },
+      });
+
+      if (didShow && shownMilestone) {
+        lastQuizBreakMilestoneRef.current = shownMilestone;
+      }
+
+      if (isLastQuestion && didShow) {
+        return;
+      }
+    }
 
     if (isLastQuestion) {
       finishQuiz({
@@ -412,6 +500,17 @@ const TrickeyQuestions = ({ navigation }) => {
   const handleStartQuiz = useCallback(() => {
     setQuizStarted(true);
   }, []);
+
+  const handleDownload = useCallback(() => {
+    exportQuestionTextFile({
+      quizTitle: quizTitle || 'Reasoning',
+      questionNumber: currentIndex + 1,
+      totalQuestions,
+      questionText: question?.question || '',
+      options: question?.options || [],
+      correctAnswer: correctOption || question?.answer || '',
+    });
+  }, [correctOption, currentIndex, question?.answer, question?.options, question?.question, quizTitle, totalQuestions]);
 
   const timeProgressColors = getTimeProgressColors(seconds / INITIAL_TIME);
 
@@ -492,20 +591,19 @@ const TrickeyQuestions = ({ navigation }) => {
             <View style={styles.compactControlsWrap}>
               <View style={styles.compactLauncherRow}>
                 <TouchableOpacity
-                  activeOpacity={0.86}
-                  onPress={() => setShowControls((prev) => !prev)}
+                  activeOpacity={0.88}
+                  onPress={() =>
+                    handleExitNavigation(() => resetToHomeScreen(navigation, { name: ROUTES.Home }))
+                  }
                   style={styles.compactControlsButtonHit}
                 >
                   <LinearGradient
-                    colors={
-                      showControls
-                        ? ['#8B5CF6', '#60A5FA']
-                        : ['rgba(19,25,54,0.96)', 'rgba(37,99,235,0.90)']
-                    }
+                    colors={['rgba(19,25,54,0.96)', 'rgba(37,99,235,0.90)']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={styles.compactControlsButton}
                   >
+                    <HomeIcon color="#F4F7FF" size={18} />
                     <Text style={styles.compactControlsButtonText}>{showControls ? '×' : '☰'}</Text>
                   </LinearGradient>
                 </TouchableOpacity>
@@ -513,16 +611,30 @@ const TrickeyQuestions = ({ navigation }) => {
                 <View style={styles.compactScreenActions}>
                   <TouchableOpacity
                     activeOpacity={0.88}
-                    onPress={() => navigation.navigate(ROUTES.EnglishQuizz)}
-                    style={styles.compactEnglishHit}
+                    onPress={() => {
+                      if (autoNextTimerRef.current) {
+                        clearTimeout(autoNextTimerRef.current);
+                        autoNextTimerRef.current = null;
+                      }
+                      if (currentIndex <= 0) {
+                        return;
+                      }
+                      setSelectedOption(null);
+                      setCurrentCorrect(false);
+                      setFeedbackMessage(null);
+                      setCurrentIndex((prev) => Math.max(prev - 1, 0));
+                      setShowTimeOver(false);
+                      timeOverHandledRef.current = false;
+                    }}
+                    style={styles.compactPrevHit}
                   >
                     <LinearGradient
-                      colors={['rgba(19,25,54,0.96)', 'rgba(139,92,246,0.88)', 'rgba(244,114,182,0.82)']}
+                      colors={['rgba(19,25,54,0.96)', 'rgba(56,189,248,0.88)']}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 1 }}
-                      style={styles.compactEnglishButton}
+                      style={styles.compactPrevButton}
                     >
-                      <Text style={styles.compactEnglishText}>English Quizz</Text>
+                      <Text numberOfLines={1} style={styles.compactPrevText}>Previous</Text>
                     </LinearGradient>
                   </TouchableOpacity>
 
@@ -533,7 +645,7 @@ const TrickeyQuestions = ({ navigation }) => {
                       end={{ x: 1, y: 1 }}
                       style={styles.compactNextButton}
                     >
-                      <Text style={styles.compactNextText}>{isLastQuestion ? 'Submit' : 'Next'}</Text>
+                      <Text numberOfLines={1} style={styles.compactNextText}>{isLastQuestion ? 'Submit' : 'Next'}</Text>
                     </LinearGradient>
                   </TouchableOpacity>
                 </View>
@@ -545,28 +657,19 @@ const TrickeyQuestions = ({ navigation }) => {
                     singleRow
                     left={{
                       onPress: () =>
-                        (navigation.canGoBack() ? navigation.goBack() : navigation.navigate(ROUTES.Home)),
-                      children: <BackIcon color="#F4F7FF" size={20} />,
-                    }}
-                    top={{
-                      onPress: () => setIsSoundMuted((prev) => !prev),
-                      children: <SpeakerIcon muted={isSoundMuted} color="#F4F7FF" size={20} />,
-                    }}
-                    center={{
-                      onPress: () => navigation.navigate(ROUTES.Home),
+                        handleExitNavigation(() => resetToHomeScreen(navigation, { name: ROUTES.Home })),
                       children: <HomeIcon color="#F4F7FF" size={20} />,
                     }}
-                    right={{
-                      onPress: () => navigation.navigate(ROUTES.QuizBoard),
-                      children: <Text style={styles.remoteEmoji}>Q</Text>,
+                    top={{
+                      onPress: () => {},
+                      active: false,
+                      colors: ['#4B5563', '#6B7280'],
+                      children: <VoiceIcon muted color="#F4F7FF" size={20} />,
                     }}
-                    bottom={{
-                      onPress: () => navigation.navigate(ROUTES.GkBoard),
-                      children: <CurrentAffairsIcon color="#F4F7FF" size={18} />,
-                    }}
-                    extra={{
-                      onPress: () => navigation.navigate(ROUTES.EnglishQuizz),
-                      children: <EnglishQuizIcon color="#F4F7FF" size={18} />,
+                    center={{
+                      onPress: () => setIsSoundMuted((prev) => !prev),
+                      colors: tickButtonColors,
+                      children: <ClockIcon muted={isSoundMuted} color="#F4F7FF" size={20} />,
                     }}
                   />
                 </View>
@@ -574,15 +677,12 @@ const TrickeyQuestions = ({ navigation }) => {
             </View>
           </View>
 
-          <View style={styles.languageSection}>
-            <LanguageSwitcher value={selectedLanguage} onChange={handleLanguageChange} />
-          </View>
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           <Animated.View style={[styles.quizCard, shakeStyle]}>
             <LinearGradient
-              colors={['rgba(27,15,56,0.98)', 'rgba(19,10,34,0.96)', 'rgba(11,7,20,0.98)']}
+              colors={['#F2FFF4', '#EBFAEF', '#F8FFF8']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.questionPanel}
@@ -598,6 +698,28 @@ const TrickeyQuestions = ({ navigation }) => {
               </AnimationListWraper>
               <AnimationListWraper key={`qt-${currentIndex}`} index={1}>
                 <Text style={styles.questionTitle}>{question?.question || ''}</Text>
+              </AnimationListWraper>
+
+              <View style={styles.questionActionRow}>
+                <QuestionExportControls
+                  onPressSound={() => setIsSoundMuted((prev) => !prev)}
+                  onPressDownload={handleDownload}
+                  onPressFavourite={handleSaveFavourite}
+                  favourited={isFavourite}
+                  favouriteLoading={isSavingFavourite}
+                  soundMuted={isSoundMuted}
+                  voiceMuted
+                  showSound
+                  showVoice
+                  voiceDisabled
+                  variant="lightPanel"
+                />
+              </View>
+
+              <AnimationListWraper key={`ql-${currentIndex}`} index={2}>
+                <View style={styles.questionLanguageSection}>
+                  <LanguageSwitcher value={selectedLanguage} onChange={handleLanguageChange} />
+                </View>
               </AnimationListWraper>
             </LinearGradient>
 
@@ -618,7 +740,7 @@ const TrickeyQuestions = ({ navigation }) => {
 
             <View style={styles.optionsGroup}>
               {question?.options?.map((option, optionIndex) => (
-                <AnimationListWraper key={`${currentIndex}-${option}`} index={optionIndex + 1}>
+                <AnimationListWraper key={`${currentIndex}-${option}`} index={optionIndex + 3}>
                   <OptionTile
                     index={optionIndex}
                     option={option}
@@ -669,13 +791,8 @@ const TrickeyQuestions = ({ navigation }) => {
             </View>
           </Animated.View>
         </ScrollView>
+        <BottomBanner />
         <TimeOverOverlay visible={showTimeOver} label="Time Over" />
-        <StartQuizOverlay
-          visible={!quizStarted}
-          title="Welcome to Tricky Questions"
-          subtitle="Press Start to begin the puzzle timer, sound, and answer flow."
-          onStart={handleStartQuiz}
-        />
       </LinearGradient>
     </SafeAreaView>
   );
@@ -728,18 +845,17 @@ const styles = StyleSheet.create({
   },
   fixedTopSection: {
     paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingTop: 16,
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 28,
+    paddingTop: 16,
+    paddingBottom: 40,
   },
   topBar: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    flexWrap: 'wrap',
     gap: 8,
   },
   compactControlsWrap: {
@@ -772,10 +888,10 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   compactControlsButtonText: {
-    color: '#F8F4FF',
-    fontSize: 20,
+    color: 'transparent',
+    fontSize: 0,
     fontWeight: '900',
-    lineHeight: 20,
+    lineHeight: 0,
   },
   compactScreenActions: {
     flex: 1,
@@ -789,10 +905,11 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   compactEnglishButton: {
-    height: 42,
+    minHeight: 42,
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 10,
     shadowColor: '#E953B8',
     shadowOpacity: 0.22,
     shadowRadius: 10,
@@ -805,16 +922,41 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 0.2,
     textTransform: 'uppercase',
+    textAlign: 'center',
   },
   compactNextHit: {
     flex: 1,
     minWidth: 0,
   },
-  compactNextButton: {
-    height: 42,
+  compactPrevHit: {
+    flex: 1,
+    minWidth: 0,
+  },
+  compactPrevButton: {
+    minHeight: 42,
     borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 10,
+    shadowColor: '#0EA5E9',
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  compactPrevText: {
+    color: '#F8FBFF',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 0.2,
+    textAlign: 'center',
+  },
+  compactNextButton: {
+    minHeight: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
     shadowColor: '#8B5CF6',
     shadowOpacity: 0.22,
     shadowRadius: 10,
@@ -826,10 +968,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '900',
     letterSpacing: 0.2,
+    textAlign: 'center',
   },
   compactControlsPanel: {
     marginTop: 10,
     width: '100%',
+  },
+  compactClockGlyph: {
+    color: '#F4F7FF',
+    fontSize: 20,
+    fontWeight: '900',
+    lineHeight: 20,
   },
   headerTitleWrap: {
     flex: 1,
@@ -848,10 +997,6 @@ const styles = StyleSheet.create({
     color: '#F4F7FF',
     fontSize: 20,
     fontWeight: '800',
-  },
-  languageSection: {
-    marginTop: 16,
-    alignItems: 'center',
   },
   remoteEmoji: {
     fontSize: 16,
@@ -1006,12 +1151,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingTop: 18,
     paddingBottom: 20,
-    backgroundColor: colors.panelDark,
+    backgroundColor: '#F2FFF4',
     position: 'relative',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(22,163,74,0.12)',
   },
   questionCounterText: {
-    color: '#F4F7FF',
+    color: '#1B3B2C',
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 1.3,
@@ -1019,7 +1166,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   panelTitle: {
-    color: 'rgba(244,247,255,0.72)',
+    color: '#5C7D66',
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.8,
@@ -1033,11 +1180,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   questionTitle: {
-    color: '#F4F7FF',
+    color: '#183728',
     textAlign: 'center',
     fontSize: 18,
     lineHeight: 25,
     fontWeight: '700',
+  },
+  questionActionRow: {
+    marginTop: 14,
+    alignItems: 'flex-end',
+  },
+  questionLanguageSection: {
+    marginTop: 12,
   },
   timeRow: {
     marginTop: 12,

@@ -4,9 +4,15 @@ D:/QUIZZ/quiz-app/android/app/.cxx/RelWithDebInfo/3n2d2g5s/x86_64/CMakeFiles/reb
 D:/QUIZZ/quiz-app/android/app/.cxx/RelWithDebInfo/3n2d2g5s/x86_64/RNCNetInfoSpec_autolinked_build/CMakeFiles/react_codegen_RNCNetInfoSpec.dir
 D:/QUIZZ/quiz-app/android/app/.cxx/RelWithDebInfo/3n2d2g5s/x86_64/RNCNetInfoSpec_autolinked_build/CMakeFiles/edit_cache.dir
 D:/QUIZZ/quiz-app/android/app/.cxx/RelWithDebInfo/3n2d2g5s/x86_64/RNCNetInfoSpec_autolinked_build/CMakeFiles/rebuild_cache.dir
+D:/QUIZZ/quiz-app/android/app/.cxx/RelWithDebInfo/3n2d2g5s/x86_64/FileAccessSpec_autolinked_build/CMakeFiles/react_codegen_FileAccessSpec.dir
+D:/QUIZZ/quiz-app/android/app/.cxx/RelWithDebInfo/3n2d2g5s/x86_64/FileAccessSpec_autolinked_build/CMakeFiles/edit_cache.dir
+D:/QUIZZ/quiz-app/android/app/.cxx/RelWithDebInfo/3n2d2g5s/x86_64/FileAccessSpec_autolinked_build/CMakeFiles/rebuild_cache.dir
 D:/QUIZZ/quiz-app/android/app/.cxx/RelWithDebInfo/3n2d2g5s/x86_64/rngesturehandler_codegen_autolinked_build/CMakeFiles/react_codegen_rngesturehandler_codegen.dir
 D:/QUIZZ/quiz-app/android/app/.cxx/RelWithDebInfo/3n2d2g5s/x86_64/rngesturehandler_codegen_autolinked_build/CMakeFiles/edit_cache.dir
 D:/QUIZZ/quiz-app/android/app/.cxx/RelWithDebInfo/3n2d2g5s/x86_64/rngesturehandler_codegen_autolinked_build/CMakeFiles/rebuild_cache.dir
+D:/QUIZZ/quiz-app/android/app/.cxx/RelWithDebInfo/3n2d2g5s/x86_64/RNGoogleMobileAdsSpec_autolinked_build/CMakeFiles/react_codegen_RNGoogleMobileAdsSpec.dir
+D:/QUIZZ/quiz-app/android/app/.cxx/RelWithDebInfo/3n2d2g5s/x86_64/RNGoogleMobileAdsSpec_autolinked_build/CMakeFiles/edit_cache.dir
+D:/QUIZZ/quiz-app/android/app/.cxx/RelWithDebInfo/3n2d2g5s/x86_64/RNGoogleMobileAdsSpec_autolinked_build/CMakeFiles/rebuild_cache.dir
 D:/QUIZZ/quiz-app/android/app/.cxx/RelWithDebInfo/3n2d2g5s/x86_64/NitroModulesSpec_autolinked_build/CMakeFiles/react_codegen_NitroModulesSpec.dir
 D:/QUIZZ/quiz-app/android/app/.cxx/RelWithDebInfo/3n2d2g5s/x86_64/NitroModulesSpec_autolinked_build/CMakeFiles/edit_cache.dir
 D:/QUIZZ/quiz-app/android/app/.cxx/RelWithDebInfo/3n2d2g5s/x86_64/NitroModulesSpec_autolinked_build/CMakeFiles/rebuild_cache.dir
@@ -22,6 +28,9 @@ D:/QUIZZ/quiz-app/android/app/.cxx/RelWithDebInfo/3n2d2g5s/x86_64/safeareacontex
 D:/QUIZZ/quiz-app/android/app/.cxx/RelWithDebInfo/3n2d2g5s/x86_64/rnscreens_autolinked_build/CMakeFiles/react_codegen_rnscreens.dir
 D:/QUIZZ/quiz-app/android/app/.cxx/RelWithDebInfo/3n2d2g5s/x86_64/rnscreens_autolinked_build/CMakeFiles/edit_cache.dir
 D:/QUIZZ/quiz-app/android/app/.cxx/RelWithDebInfo/3n2d2g5s/x86_64/rnscreens_autolinked_build/CMakeFiles/rebuild_cache.dir
+D:/QUIZZ/quiz-app/android/app/.cxx/RelWithDebInfo/3n2d2g5s/x86_64/RNShareSpec_autolinked_build/CMakeFiles/react_codegen_RNShareSpec.dir
+D:/QUIZZ/quiz-app/android/app/.cxx/RelWithDebInfo/3n2d2g5s/x86_64/RNShareSpec_autolinked_build/CMakeFiles/edit_cache.dir
+D:/QUIZZ/quiz-app/android/app/.cxx/RelWithDebInfo/3n2d2g5s/x86_64/RNShareSpec_autolinked_build/CMakeFiles/rebuild_cache.dir
 D:/QUIZZ/quiz-app/android/app/.cxx/RelWithDebInfo/3n2d2g5s/x86_64/RNSoundSpec_autolinked_build/CMakeFiles/react_codegen_RNSoundSpec.dir
 D:/QUIZZ/quiz-app/android/app/.cxx/RelWithDebInfo/3n2d2g5s/x86_64/RNSoundSpec_autolinked_build/CMakeFiles/edit_cache.dir
 D:/QUIZZ/quiz-app/android/app/.cxx/RelWithDebInfo/3n2d2g5s/x86_64/RNSoundSpec_autolinked_build/CMakeFiles/rebuild_cache.dir

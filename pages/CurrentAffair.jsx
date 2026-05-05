@@ -18,12 +18,12 @@ import { useIsFocused } from '@react-navigation/native';
 import { useNetInfo } from '@react-native-community/netinfo';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import firestore from '@react-native-firebase/firestore';
-import QuizRemotePad from '../components/QuizRemotePad';
+import BottomBanner from '../components/BottomBanner';
 import QuestionClock from '../components/QuestionClock';
 import TimeOverOverlay from '../components/TimeOverOverlay';
-import StartQuizOverlay from '../components/StartQuizOverlay';
-import { BackIcon, HomeIcon, SpeakerIcon, VoiceIcon } from '../components/icons';
+import { HomeIcon } from '../components/icons';
 import { OptionTile } from '../components/OptionTile';
+import QuestionExportControls from '../components/QuestionExportControls';
 import QuizLoader from '../animation/QuizLoader';
 import AnimationListWraper from '../animation/AnimationListWraper';
 import LanguageSwitcher from '../components/LanguageSwitcher';
@@ -35,8 +35,12 @@ import { calculateAccuracy, formatTimer } from '../util/functions';
 import { getAvailableLanguage, getLanguageQuestions } from '../util/language';
 import NetworkIssueOverlay from '../components/NetworkIssueOverlay';
 import { loadWithTimeout } from '../util/loadWithTimeout';
-import { recordQuizResult } from '../util/quizStats';
+import { syncQuizProgress } from '../util/quizStats';
 import { ROUTES } from '../navigation/routes';
+import { resetToHomeScreen } from '../util/navigation';
+import { useAdManager } from '../hooks/useAdManager';
+import { useFavouriteQuestion } from '../hooks/useFavouriteQuestion';
+import { exportQuestionTextFile } from '../util/questionExport';
 import {
   buildQuestionSpeech,
   ensureQuizVoiceReady,
@@ -87,7 +91,7 @@ const resolveCorrectOption = (question) => {
   return prefixedMatch ?? null;
 };
 
-const LOAD_TIMEOUT_MS = 15000;
+const LOAD_TIMEOUT_MS = 30000;
 
 const CurrentAffairs = ({ navigation }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -106,14 +110,37 @@ const CurrentAffairs = ({ navigation }) => {
   const [isSoundMuted, setIsSoundMuted] = useState(false);
   const [isVoiceMuted, setIsVoiceMuted] = useState(false);
   const [showTimeOver, setShowTimeOver] = useState(false);
-  const [quizStarted, setQuizStarted] = useState(false);
-  const [showControls, setShowControls] = useState(false);
+  const [quizStarted, setQuizStarted] = useState(true);
+  const showControls = false;
   const isFocused = useIsFocused();
   const netInfo = useNetInfo();
   const timeOverHandledRef = useRef(false);
   const autoNextTimerRef = useRef(null);
   const lastSpokenQuestionRef = useRef('');
+  const sessionIdRef = useRef(`ca-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`);
+  const lastQuizBreakMilestoneRef = useRef(0);
   const isOffline = netInfo.isConnected === false || netInfo.isInternetReachable === false;
+  const { showInterstitial, showRandomQuizBreakAd } = useAdManager();
+  const favouritePayload = useCallback(() => {
+    if (!question?.question) {
+      return null;
+    }
+
+    return {
+      quizTitle: quizTitle || 'Current Affairs',
+      source: 'current-affairs',
+      questionText: question.question,
+      answerText: correctOption || question?.answer || '',
+      options: question?.options || [],
+      questionNumber: currentIndex + 1,
+      totalQuestions,
+    };
+  }, [correctOption, currentIndex, question, quizTitle, totalQuestions]);
+  const {
+    isFavourite,
+    isSavingFavourite,
+    handleSaveFavourite,
+  } = useFavouriteQuestion({ getPayload: favouritePayload });
 
 
   const getTodayQuiz = useCallback(async () => {
@@ -195,6 +222,7 @@ const CurrentAffairs = ({ navigation }) => {
   );
   const totalQuestions = questions.length;
   const question = questions[currentIndex];
+  const attemptedQuestions = correctCount + wrongCount + (selectedOption ? 1 : 0);
   const correctOption = resolveCorrectOption(question);
   const isLastQuestion = currentIndex === totalQuestions - 1;
 
@@ -308,24 +336,41 @@ const CurrentAffairs = ({ navigation }) => {
       finalTimeTakenSeconds,
     }) => {
       const accuracy = calculateAccuracy(finalCorrectCount, totalQuestions);
-      recordQuizResult({
+      syncQuizProgress({
+        sessionId: sessionIdRef.current,
         quizType: 'ca',
+        totalQuestions,
         correctAnswers: finalCorrectCount,
         wrongAnswers: finalWrongCount,
+        notAttemptedAnswers: finalNotAttemptedCount,
+        isComplete: true,
       });
       navigation.replace(ROUTES.Score, {
         quizType: 'ca',
-        quizLabel: 'CA',
+        quizLabel: 'Current Affairs',
         totalQuestions,
         correctAnswers: finalCorrectCount,
         wrongAnswers: finalWrongCount,
         notAttemptedAnswers: finalNotAttemptedCount,
         timeTakenSeconds: finalTimeTakenSeconds,
         accuracy,
+        fromQuizFlow: true,
       });
     },
     [navigation, totalQuestions]
   );
+
+  const handleExitNavigation = useCallback((action) => {
+    const didShow = showInterstitial({
+      placement: 'quiz_exit',
+      attemptedQuestions,
+      onClosed: action,
+    });
+
+    if (!didShow) {
+      action();
+    }
+  }, [attemptedQuestions, showInterstitial]);
 
   const { seconds } = useCountdown({
     start: quizStarted ? INITIAL_TIME : 0,
@@ -456,11 +501,49 @@ const CurrentAffairs = ({ navigation }) => {
     const nextWrongCount = wrongCount + (hasSelection && !currentCorrect ? 1 : 0);
     const nextNotAttemptedCount = notAttemptedCount + (hasSelection ? 0 : 1);
     const nextTimeSpentSeconds = timeSpentSeconds + spentSeconds;
+    const nextAttemptedQuestions = nextCorrectCount + nextWrongCount;
+
+    syncQuizProgress({
+      sessionId: sessionIdRef.current,
+      quizType: 'ca',
+      totalQuestions,
+      correctAnswers: nextCorrectCount,
+      wrongAnswers: nextWrongCount,
+      notAttemptedAnswers: nextNotAttemptedCount,
+    });
 
     setCorrectCount(nextCorrectCount);
     setWrongCount(nextWrongCount);
     setNotAttemptedCount(nextNotAttemptedCount);
     setTimeSpentSeconds(nextTimeSpentSeconds);
+
+    const milestone =
+      nextAttemptedQuestions > 0 && nextAttemptedQuestions % 5 === 0 ? nextAttemptedQuestions : 0;
+
+    if (milestone > 0) {
+      const { didShow, milestone: shownMilestone } = showRandomQuizBreakAd({
+        attemptedQuestions: milestone,
+        lastShownMilestone: lastQuizBreakMilestoneRef.current,
+        onClosed: () => {
+          if (isLastQuestion) {
+            finishQuiz({
+              finalCorrectCount: nextCorrectCount,
+              finalWrongCount: nextWrongCount,
+              finalNotAttemptedCount: nextNotAttemptedCount,
+              finalTimeTakenSeconds: nextTimeSpentSeconds,
+            });
+          }
+        },
+      });
+
+      if (didShow && shownMilestone) {
+        lastQuizBreakMilestoneRef.current = shownMilestone;
+      }
+
+      if (isLastQuestion && didShow) {
+        return;
+      }
+    }
 
     if (isLastQuestion) {
       finishQuiz({
@@ -484,6 +567,17 @@ const CurrentAffairs = ({ navigation }) => {
   const handleStartQuiz = useCallback(() => {
     setQuizStarted(true);
   }, []);
+
+  const handleDownload = useCallback(() => {
+    exportQuestionTextFile({
+      quizTitle: quizTitle || 'Current Affairs',
+      questionNumber: currentIndex + 1,
+      totalQuestions,
+      questionText: question?.question || '',
+      options: question?.options || [],
+      correctAnswer: correctOption || question?.answer || '',
+    });
+  }, [correctOption, currentIndex, question?.answer, question?.options, question?.question, quizTitle, totalQuestions]);
 
   const progressPercent = useMemo(
     () => (totalQuestions ? ((currentIndex + 1) / totalQuestions) * 100 : 0),
@@ -568,20 +662,19 @@ const CurrentAffairs = ({ navigation }) => {
             <View style={styles.compactControlsWrap}>
               <View style={styles.compactLauncherRow}>
                 <TouchableOpacity
-                  activeOpacity={0.86}
-                  onPress={() => setShowControls((prev) => !prev)}
+                  activeOpacity={0.88}
+                  onPress={() =>
+                    handleExitNavigation(() => resetToHomeScreen(navigation, { name: ROUTES.Home }))
+                  }
                   style={styles.compactControlsButtonHit}
                 >
                   <LinearGradient
-                    colors={
-                      showControls
-                        ? ['#8B5CF6', '#60A5FA']
-                        : ['rgba(19,25,54,0.96)', 'rgba(37,99,235,0.90)']
-                    }
+                    colors={['rgba(19,25,54,0.96)', 'rgba(37,99,235,0.90)']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={styles.compactControlsButton}
                   >
+                    <HomeIcon color="#F4F7FF" size={18} />
                     <Text style={styles.compactControlsButtonText}>{showControls ? '×' : '☰'}</Text>
                   </LinearGradient>
                 </TouchableOpacity>
@@ -589,16 +682,30 @@ const CurrentAffairs = ({ navigation }) => {
                 <View style={styles.compactScreenActions}>
                   <TouchableOpacity
                     activeOpacity={0.88}
-                    onPress={() => navigation.navigate(ROUTES.EnglishQuizz)}
-                    style={styles.compactEnglishHit}
+                    onPress={() => {
+                      if (autoNextTimerRef.current) {
+                        clearTimeout(autoNextTimerRef.current);
+                        autoNextTimerRef.current = null;
+                      }
+                      if (currentIndex <= 0) {
+                        return;
+                      }
+                      setSelectedOption(null);
+                      setCurrentCorrect(false);
+                      setFeedbackMessage(null);
+                      setCurrentIndex((prev) => Math.max(prev - 1, 0));
+                      setShowTimeOver(false);
+                      timeOverHandledRef.current = false;
+                    }}
+                    style={styles.compactPrevHit}
                   >
                     <LinearGradient
-                      colors={['rgba(19,25,54,0.96)', 'rgba(139,92,246,0.88)', 'rgba(244,114,182,0.82)']}
+                      colors={['rgba(19,25,54,0.96)', 'rgba(56,189,248,0.88)']}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 1 }}
-                      style={styles.compactEnglishButton}
+                      style={styles.compactPrevButton}
                     >
-                      <Text style={styles.compactEnglishText}>English Quizz</Text>
+                      <Text numberOfLines={1} style={styles.compactPrevText}>Previous</Text>
                     </LinearGradient>
                   </TouchableOpacity>
 
@@ -609,51 +716,14 @@ const CurrentAffairs = ({ navigation }) => {
                       end={{ x: 1, y: 1 }}
                       style={styles.compactNextButton}
                     >
-                      <Text style={styles.compactNextText}>{isLastQuestion ? 'Submit' : 'Next'}</Text>
+                      <Text numberOfLines={1} style={styles.compactNextText}>{isLastQuestion ? 'Submit' : 'Next'}</Text>
                     </LinearGradient>
                   </TouchableOpacity>
                 </View>
               </View>
-
-              {showControls ? (
-                <View style={styles.compactControlsPanel}>
-                  <QuizRemotePad
-                    singleRow
-                    left={{
-                      onPress: () =>
-                        (navigation.canGoBack() ? navigation.goBack() : navigation.navigate(ROUTES.Home)),
-                      children: <BackIcon color="#F4F7FF" size={20} />,
-                    }}
-                    top={{
-                      onPress: () => setIsSoundMuted((prev) => !prev),
-                      children: <SpeakerIcon muted={isSoundMuted} color="#F4F7FF" size={20} />,
-                    }}
-                    extra={{
-                      onPress: () => setIsVoiceMuted((prev) => !prev),
-                      label: '',
-                      children: <VoiceIcon muted={isVoiceMuted} color="#F4F7FF" size={45} />,
-                    }}
-                    center={{
-                      onPress: () => navigation.navigate(ROUTES.Home),
-                      children: <HomeIcon color="#F4F7FF" size={20} />,
-                    }}
-                    right={{
-                      onPress: () => navigation.navigate(ROUTES.TrickeyQuestions),
-                      children: <Text style={styles.remoteEmoji}>💡</Text>,
-                    }}
-                    bottom={{
-                      onPress: () => navigation.navigate(ROUTES.QuizBoard),
-                      children: <Text style={styles.remoteLabel}>Q</Text>,
-                    }}
-                  />
-                </View>
-              ) : null}
             </View>
           </View>
 
-          <View style={styles.languageSection}>
-            <LanguageSwitcher value={selectedLanguage} onChange={handleLanguageChange} />
-          </View>
         </View>
 
         <ScrollView
@@ -662,7 +732,7 @@ const CurrentAffairs = ({ navigation }) => {
         >
           <Animated.View style={[styles.quizCard, shakeStyle]}>
             <LinearGradient
-              colors={['rgba(27,15,56,0.98)', 'rgba(19,10,34,0.96)', 'rgba(11,7,20,0.98)']}
+              colors={['#F2FFF4', '#EBFAEF', '#F8FFF8']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.questionPanel}
@@ -678,6 +748,28 @@ const CurrentAffairs = ({ navigation }) => {
               </AnimationListWraper>
               <AnimationListWraper key={`qt-${currentIndex}`} index={1}>
                 <Text style={styles.questionTitle}>{question?.question || ''}</Text>
+              </AnimationListWraper>
+
+              <View style={styles.questionActionRow}>
+                <QuestionExportControls
+                  onPressSound={() => setIsSoundMuted((prev) => !prev)}
+                  onPressVoice={() => setIsVoiceMuted((prev) => !prev)}
+                  onPressDownload={handleDownload}
+                  onPressFavourite={handleSaveFavourite}
+                  favourited={isFavourite}
+                  favouriteLoading={isSavingFavourite}
+                  soundMuted={isSoundMuted}
+                  voiceMuted={isVoiceMuted}
+                  showSound
+                  showVoice
+                  variant="lightPanel"
+                />
+              </View>
+
+              <AnimationListWraper key={`ql-${currentIndex}`} index={2}>
+                <View style={styles.questionLanguageSection}>
+                  <LanguageSwitcher value={selectedLanguage} onChange={handleLanguageChange} />
+                </View>
               </AnimationListWraper>
             </LinearGradient>
 
@@ -698,7 +790,7 @@ const CurrentAffairs = ({ navigation }) => {
 
             <View style={styles.optionsGroup}>
               {question?.options?.map((option, optionIndex) => (
-                <AnimationListWraper key={`${currentIndex}-${option}`} index={optionIndex + 1}>
+                <AnimationListWraper key={`${currentIndex}-${option}`} index={optionIndex + 3}>
                   <OptionTile
                     index={optionIndex}
                     option={option}
@@ -753,13 +845,8 @@ const CurrentAffairs = ({ navigation }) => {
             <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
           </View>
         </ScrollView>
+        <BottomBanner />
         <TimeOverOverlay visible={showTimeOver} label="Time Over" />
-        <StartQuizOverlay
-          visible={!quizStarted}
-          title="Welcome to Current Affairs"
-          subtitle="Press Start to begin the CA timer, sound, and question flow."
-          onStart={handleStartQuiz}
-        />
       </LinearGradient>
     </SafeAreaView>
   );
@@ -840,18 +927,17 @@ const styles = StyleSheet.create({
   },
   fixedTopSection: {
     paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingTop: 16,
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 28,
+    paddingTop: 16,
+    paddingBottom: 40,
   },
   topBar: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    flexWrap: 'wrap',
     gap: 8,
   },
   compactControlsWrap: {
@@ -884,10 +970,10 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   compactControlsButtonText: {
-    color: '#F8F4FF',
-    fontSize: 20,
+    color: 'transparent',
+    fontSize: 0,
     fontWeight: '900',
-    lineHeight: 20,
+    lineHeight: 0,
   },
   compactScreenActions: {
     flex: 1,
@@ -901,10 +987,11 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   compactEnglishButton: {
-    height: 42,
+    minHeight: 42,
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 10,
     shadowColor: '#E953B8',
     shadowOpacity: 0.22,
     shadowRadius: 10,
@@ -917,16 +1004,41 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 0.2,
     textTransform: 'uppercase',
+    textAlign: 'center',
   },
   compactNextHit: {
     flex: 1,
     minWidth: 0,
   },
-  compactNextButton: {
-    height: 42,
+  compactPrevHit: {
+    flex: 1,
+    minWidth: 0,
+  },
+  compactPrevButton: {
+    minHeight: 42,
     borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 10,
+    shadowColor: '#0EA5E9',
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  compactPrevText: {
+    color: '#F8FBFF',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 0.2,
+    textAlign: 'center',
+  },
+  compactNextButton: {
+    minHeight: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
     shadowColor: '#8B5CF6',
     shadowOpacity: 0.22,
     shadowRadius: 10,
@@ -938,14 +1050,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '900',
     letterSpacing: 0.2,
+    textAlign: 'center',
   },
   compactControlsPanel: {
     marginTop: 10,
     width: '100%',
   },
-  languageSection: {
-    marginTop: 16,
-    alignItems: 'center',
+  compactClockGlyph: {
+    color: '#F4F7FF',
+    fontSize: 20,
+    fontWeight: '900',
+    lineHeight: 20,
   },
   remoteEmoji: {
     fontSize: 16,
@@ -1068,16 +1183,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingTop: 18,
     paddingBottom: 20,
-    backgroundColor: colors.panelDark,
+    backgroundColor: '#F2FFF4',
     position: 'relative',
     shadowColor: '#0A102E',
     shadowOffset: { width: 0, height: 16 },
     shadowOpacity: 0.16,
     shadowRadius: 16,
     elevation: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(22,163,74,0.12)',
   },
   questionCounterText: {
-    color: '#F4F7FF',
+    color: '#1B3B2C',
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 1.3,
@@ -1085,7 +1202,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   panelTitle: {
-    color: 'rgba(244,247,255,0.72)',
+    color: '#5C7D66',
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.8,
@@ -1102,8 +1219,16 @@ const styles = StyleSheet.create({
     fontSize: 18,
     lineHeight: 25,
     fontWeight: '800',
-    color: '#F4F7FF',
+    color: '#183728',
     letterSpacing: -0.5,
+    textAlign: 'center',
+  },
+  questionActionRow: {
+    marginTop: 14,
+    alignItems: 'flex-end',
+  },
+  questionLanguageSection: {
+    marginTop: 12,
   },
   timeRow: {
     marginTop: 12,

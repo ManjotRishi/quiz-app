@@ -12,7 +12,9 @@ const ChildQuizzPage = ({ navigation }) => {
     navigation,
     collectionName: CHILDQUIZZCOLLECTION,
     quizType: 'child',
-    quizLabel: 'Child Quizz',
+    quizLabel: 'Child Quiz',
+    quizBreakMilestones: [5, 12, 18],
+    quizBreakAdType: 'rewarded',
   });
 
   if (quizBoard.quizLoading) {

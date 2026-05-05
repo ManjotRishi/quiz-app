@@ -3,7 +3,8 @@ import { Animated, Easing, ScrollView, StatusBar, StyleSheet, Text, TouchableOpa
 import LinearGradient from 'react-native-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import Advertisement from '../components/Advertisement';
+import BottomBanner from '../components/BottomBanner';
+import TopBanner from '../components/TopBanner';
 import { ROUTES } from '../navigation/routes';
 import { RootStackParamList } from '../navigation/types';
 import { fontScale, radiusScale, spaceScale } from '../style/responsive';
@@ -81,10 +82,7 @@ const WelcomeChooser = ({ navigation }: Props) => {
         <View style={styles.glowPink} />
         <View style={styles.glowBlue} />
         <View style={styles.glowPurple} />
-
-        <View style={styles.bannerWrap}>
-          <Advertisement banner containerStyle={styles.banner} />
-        </View>
+        <TopBanner />
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           <Animated.View style={[styles.content, enterStyle]}>
@@ -92,7 +90,7 @@ const WelcomeChooser = ({ navigation }: Props) => {
             <Text style={styles.title}>Choose your quiz world</Text>
             <Text style={styles.subtitle}>Tap the child side for fun learning or the elder side for the classic quiz board.</Text>
 
-            <TouchableOpacity activeOpacity={0.92} onPress={() => navigation.navigate(ROUTES.ChildQuizz)} style={styles.choiceTouch}>
+            <TouchableOpacity activeOpacity={0.92} onPress={() => navigation.navigate(ROUTES.ChildSection)} style={styles.choiceTouch}>
               <LinearGradient colors={['rgba(251,191,36,0.22)', 'rgba(244,114,182,0.18)', 'rgba(255,255,255,0.08)']} style={styles.choiceCard}>
                 <Animated.View
                   style={[
@@ -160,6 +158,7 @@ const WelcomeChooser = ({ navigation }: Props) => {
             </TouchableOpacity>
           </Animated.View>
         </ScrollView>
+        <BottomBanner />
       </LinearGradient>
     </SafeAreaView>
   );
@@ -170,9 +169,7 @@ export default WelcomeChooser;
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#05020D' },
   container: { flex: 1 },
-  bannerWrap: { position: 'absolute', top: spaceScale(10), left: spaceScale(18), right: spaceScale(18), zIndex: 20 },
-  banner: { paddingVertical: spaceScale(10), borderRadius: radiusScale(22), alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(9, 7, 19, 0.22)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
-  scrollContent: { paddingHorizontal: spaceScale(18), paddingTop: spaceScale(118), paddingBottom: spaceScale(36) },
+  scrollContent: { paddingHorizontal: spaceScale(18), paddingTop: spaceScale(24), paddingBottom: spaceScale(36) },
   glowPink: { position: 'absolute', top: -70, left: -90, width: 240, height: 240, borderRadius: 240, backgroundColor: 'rgba(244,114,182,0.16)' },
   glowBlue: { position: 'absolute', top: 180, right: -100, width: 280, height: 280, borderRadius: 280, backgroundColor: 'rgba(96,165,250,0.14)' },
   glowPurple: { position: 'absolute', bottom: -120, left: '12%', width: 320, height: 320, borderRadius: 320, backgroundColor: 'rgba(168,85,247,0.12)' },

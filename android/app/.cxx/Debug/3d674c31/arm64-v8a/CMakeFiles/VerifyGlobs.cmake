@@ -36,6 +36,30 @@ if(NOT "${NEW_GLOB}" STREQUAL "${OLD_GLOB}")
   file(TOUCH_NOCREATE "D:/QUIZZ/quiz-app/android/app/.cxx/Debug/3d674c31/arm64-v8a/CMakeFiles/cmake.verify_globs")
 endif()
 
+# react_codegen_SRCS at D:/QUIZZ/quiz-app/node_modules/react-native-file-access/android/build/generated/source/codegen/jni/CMakeLists.txt:9 (file)
+file(GLOB NEW_GLOB LIST_DIRECTORIES true "D:/QUIZZ/quiz-app/node_modules/react-native-file-access/android/build/generated/source/codegen/jni/*.cpp")
+set(OLD_GLOB
+  "D:/QUIZZ/quiz-app/node_modules/react-native-file-access/android/build/generated/source/codegen/jni/FileAccessSpec-generated.cpp"
+  )
+if(NOT "${NEW_GLOB}" STREQUAL "${OLD_GLOB}")
+  message("-- GLOB mismatch!")
+  file(TOUCH_NOCREATE "D:/QUIZZ/quiz-app/android/app/.cxx/Debug/3d674c31/arm64-v8a/CMakeFiles/cmake.verify_globs")
+endif()
+
+# react_codegen_SRCS at D:/QUIZZ/quiz-app/node_modules/react-native-file-access/android/build/generated/source/codegen/jni/CMakeLists.txt:9 (file)
+file(GLOB NEW_GLOB LIST_DIRECTORIES true "D:/QUIZZ/quiz-app/node_modules/react-native-file-access/android/build/generated/source/codegen/jni/react/renderer/components/FileAccessSpec/*.cpp")
+set(OLD_GLOB
+  "D:/QUIZZ/quiz-app/node_modules/react-native-file-access/android/build/generated/source/codegen/jni/react/renderer/components/FileAccessSpec/ComponentDescriptors.cpp"
+  "D:/QUIZZ/quiz-app/node_modules/react-native-file-access/android/build/generated/source/codegen/jni/react/renderer/components/FileAccessSpec/EventEmitters.cpp"
+  "D:/QUIZZ/quiz-app/node_modules/react-native-file-access/android/build/generated/source/codegen/jni/react/renderer/components/FileAccessSpec/Props.cpp"
+  "D:/QUIZZ/quiz-app/node_modules/react-native-file-access/android/build/generated/source/codegen/jni/react/renderer/components/FileAccessSpec/ShadowNodes.cpp"
+  "D:/QUIZZ/quiz-app/node_modules/react-native-file-access/android/build/generated/source/codegen/jni/react/renderer/components/FileAccessSpec/States.cpp"
+  )
+if(NOT "${NEW_GLOB}" STREQUAL "${OLD_GLOB}")
+  message("-- GLOB mismatch!")
+  file(TOUCH_NOCREATE "D:/QUIZZ/quiz-app/android/app/.cxx/Debug/3d674c31/arm64-v8a/CMakeFiles/cmake.verify_globs")
+endif()
+
 # react_codegen_SRCS at D:/QUIZZ/quiz-app/node_modules/react-native-gesture-handler/android/build/generated/source/codegen/jni/CMakeLists.txt:9 (file)
 file(GLOB NEW_GLOB LIST_DIRECTORIES true "D:/QUIZZ/quiz-app/node_modules/react-native-gesture-handler/android/build/generated/source/codegen/jni/*.cpp")
 set(OLD_GLOB
@@ -251,6 +275,30 @@ set(OLD_GLOB
   "D:/QUIZZ/quiz-app/node_modules/react-native-screens/android/src/main/jni/../../../build/generated/source/codegen/jni/react/renderer/components/rnscreens/Props.cpp"
   "D:/QUIZZ/quiz-app/node_modules/react-native-screens/android/src/main/jni/../../../build/generated/source/codegen/jni/react/renderer/components/rnscreens/ShadowNodes.cpp"
   "D:/QUIZZ/quiz-app/node_modules/react-native-screens/android/src/main/jni/../../../build/generated/source/codegen/jni/react/renderer/components/rnscreens/States.cpp"
+  )
+if(NOT "${NEW_GLOB}" STREQUAL "${OLD_GLOB}")
+  message("-- GLOB mismatch!")
+  file(TOUCH_NOCREATE "D:/QUIZZ/quiz-app/android/app/.cxx/Debug/3d674c31/arm64-v8a/CMakeFiles/cmake.verify_globs")
+endif()
+
+# react_codegen_SRCS at D:/QUIZZ/quiz-app/node_modules/react-native-share/android/build/generated/source/codegen/jni/CMakeLists.txt:9 (file)
+file(GLOB NEW_GLOB LIST_DIRECTORIES true "D:/QUIZZ/quiz-app/node_modules/react-native-share/android/build/generated/source/codegen/jni/*.cpp")
+set(OLD_GLOB
+  "D:/QUIZZ/quiz-app/node_modules/react-native-share/android/build/generated/source/codegen/jni/RNShareSpec-generated.cpp"
+  )
+if(NOT "${NEW_GLOB}" STREQUAL "${OLD_GLOB}")
+  message("-- GLOB mismatch!")
+  file(TOUCH_NOCREATE "D:/QUIZZ/quiz-app/android/app/.cxx/Debug/3d674c31/arm64-v8a/CMakeFiles/cmake.verify_globs")
+endif()
+
+# react_codegen_SRCS at D:/QUIZZ/quiz-app/node_modules/react-native-share/android/build/generated/source/codegen/jni/CMakeLists.txt:9 (file)
+file(GLOB NEW_GLOB LIST_DIRECTORIES true "D:/QUIZZ/quiz-app/node_modules/react-native-share/android/build/generated/source/codegen/jni/react/renderer/components/RNShareSpec/*.cpp")
+set(OLD_GLOB
+  "D:/QUIZZ/quiz-app/node_modules/react-native-share/android/build/generated/source/codegen/jni/react/renderer/components/RNShareSpec/ComponentDescriptors.cpp"
+  "D:/QUIZZ/quiz-app/node_modules/react-native-share/android/build/generated/source/codegen/jni/react/renderer/components/RNShareSpec/EventEmitters.cpp"
+  "D:/QUIZZ/quiz-app/node_modules/react-native-share/android/build/generated/source/codegen/jni/react/renderer/components/RNShareSpec/Props.cpp"
+  "D:/QUIZZ/quiz-app/node_modules/react-native-share/android/build/generated/source/codegen/jni/react/renderer/components/RNShareSpec/ShadowNodes.cpp"
+  "D:/QUIZZ/quiz-app/node_modules/react-native-share/android/build/generated/source/codegen/jni/react/renderer/components/RNShareSpec/States.cpp"
   )
 if(NOT "${NEW_GLOB}" STREQUAL "${OLD_GLOB}")
   message("-- GLOB mismatch!")

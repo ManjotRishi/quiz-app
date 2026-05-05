@@ -12,7 +12,7 @@ const EnglishQuizz = ({ navigation }) => {
     navigation,
     collectionName: ENGLISHQUIZZCOLLECTION,
     quizType: 'english',
-    quizLabel: 'English Quizz',
+    quizLabel: 'English Quiz',
   });
 
   if (quizBoard.quizLoading) {
@@ -50,9 +50,9 @@ const EnglishQuizz = ({ navigation }) => {
       welcomeTitle="Welcome to English Quiz"
       showEnglishPill={false}
       showLanguageSection={false}
-      showCompactEnglishButton={false}
       showBanner
       compactControls
+      handlePrevious={quizBoard.handlePrevious}
       {...quizBoard}
     />
   );

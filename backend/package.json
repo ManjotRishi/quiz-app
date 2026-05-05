@@ -5,8 +5,13 @@
   "main": "api/generateQuiz.js",
   "type": "module",
   "scripts": {
-    "start": "node api/generateQuiz.js",
-    "test:quiz": "node api/generateQuiz.js"
+    "start": "node api/generateQuiz.js all",
+    "dev:server": "node devServer.js",
+    "test:quiz": "node api/generateQuiz.js all",
+    "generate:all": "node api/generateQuiz.js all",
+    "generate:main": "node api/generateQuiz.js main",
+    "generate:child-quiz": "node api/generateQuiz.js child-quiz",
+    "generate:story": "node api/generateQuiz.js story"
   },
   "dependencies": {
     "@gnews-io/gnews-io-js": "^2.2.0",

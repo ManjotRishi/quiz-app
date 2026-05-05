@@ -1,3 +1,19 @@
+export {
+  CHILDQUIZZCOLLECTION,
+  COLLECTION_NAME,
+  CURRENTAFFAIRCOLLECTION,
+  ENGLISHQUIZZCOLLECTION,
+  FAV_QUESTIONS,
+  GKCOLLECTION,
+  KIDS_POEM,
+  KIDS_STORY,
+  LISTING,
+  MATH_QUIZZ,
+  NOTES,
+  POST_COLLECTION,
+  PUZZLESCOLLECTION,
+} from './sharedCollections';
+
 export const quizQuestions = [
   {
     question: 'What is the capital of France?',
@@ -27,14 +43,11 @@ export const quizQuestions = [
 ];
 
 export const INITIAL_TIME = 45;
-export const COLLECTION_NAME = "USER_DEV_TOKENS";
-export const GKCOLLECTION = "GK_QUESTIONS";
-export const ENGLISHQUIZZCOLLECTION = "ENG_QUESTIONS";
-export const CHILDQUIZZCOLLECTION = "KIDS_QUESTIONS";
-export const CURRENTAFFAIRCOLLECTION = "CURRENT_AFFAIRS";
-export const PUZZLESCOLLECTION = "PUZZLES";
 export const LISTINGDOC = "LISTINGDOC";
-
+export const BANNERID = "ca-app-pub-8954280599634551/1773660013";
+export const INTENTIALID = "ca-app-pub-8954280599634551/2908589775";
+export const REWARDID = "ca-app-pub-8954280599634551/4906678097";
+export const APPOPEN = "ca-app-pub-8954280599634551/3444582292";
 
 export const splashTexts = [
   "Start answering...",

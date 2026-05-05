@@ -1,7 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
-import { colors } from '../style/colors';
 import { fontScale, radiusScale, spaceScale, verticalScale } from '../style/responsive';
 
 type OptionTileProps = {
@@ -12,6 +11,16 @@ type OptionTileProps = {
   showCorrectAnswer?: boolean;
   disabled?: boolean;
   index?: number;
+  layout?: {
+    optionMinHeight?: number;
+    optionRadius?: number;
+    optionPadding?: number;
+    optionBadgeSize?: number;
+    optionBadgeMarginRight?: number;
+    optionBadgeFontSize?: number;
+    optionTextFontSize?: number;
+    optionTextLineHeight?: number;
+  };
 };
 
 const OPTION_LABELS = ['A', 'B', 'C', 'D'];
@@ -24,62 +33,88 @@ export const OptionTile = ({
   showCorrectAnswer,
   disabled,
   index = 0,
+  layout,
 }: OptionTileProps) => {
   const isMarkedCorrect = Boolean((isSelected && isCorrect) || showCorrectAnswer);
   const isMarkedIncorrect = Boolean(isSelected && !isCorrect);
-  const textColor = isMarkedCorrect || isMarkedIncorrect ? '#F4F7FF' : '#EAF2FF';
+  const textColor = isMarkedCorrect || isMarkedIncorrect ? '#F8FBFF' : '#F2FBFF';
   const badgeLabel = OPTION_LABELS[index] ?? `${index + 1}`;
   const gradientColors = isMarkedCorrect
-    ? ['rgba(72,208,166,0.95)', 'rgba(96,165,250,0.76)']
+    ? ['rgba(20,184,166,0.98)', 'rgba(56,189,248,0.86)']
     : isMarkedIncorrect
-      ? ['rgba(255,127,99,0.95)', 'rgba(255,176,92,0.78)']
-      : ['rgba(43,17,90,0.98)', 'rgba(21,11,38,0.95)'];
+      ? ['rgba(249,115,22,0.96)', 'rgba(255,138,91,0.86)']
+      : ['#119A94', '#30B8D3', '#F59E0B'];
 
   return (
-    <TouchableOpacity
-      activeOpacity={0.8}
-      disabled={disabled}
-      onPress={onSelect}
-      style={styles.container}
-    >
+    <View style={[styles.container, layout ? { borderRadius: layout.optionRadius } : null]}>
       <LinearGradient
         colors={gradientColors}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={styles.gradient}
+        style={[
+          styles.gradient,
+          layout
+            ? {
+                minHeight: layout.optionMinHeight,
+                borderRadius: layout.optionRadius,
+                padding: layout.optionPadding,
+              }
+            : null,
+        ]}
       >
-        <View
-          style={[
-            styles.badge,
-            !isMarkedCorrect && !isMarkedIncorrect && styles.badgeDefault,
-            isMarkedCorrect && styles.badgeCorrect,
-            isMarkedIncorrect && styles.badgeIncorrect,
-          ]}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          disabled={disabled}
+          onPress={onSelect}
+          style={styles.selectableArea}
         >
-          <Text
+          <View
             style={[
-              styles.badgeText,
-              isMarkedCorrect && styles.badgeTextOnDark,
-              isMarkedIncorrect && styles.badgeTextOnDark,
+              styles.badge,
+              layout
+                ? {
+                    width: layout.optionBadgeSize,
+                    height: layout.optionBadgeSize,
+                    borderRadius: (layout.optionBadgeSize ?? 0) / 2,
+                    marginRight: layout.optionBadgeMarginRight,
+                  }
+                : null,
+              !isMarkedCorrect && !isMarkedIncorrect && styles.badgeDefault,
+              isMarkedCorrect && styles.badgeCorrect,
+              isMarkedIncorrect && styles.badgeIncorrect,
             ]}
           >
-            {badgeLabel}
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.badgeText,
+                layout ? { fontSize: layout.optionBadgeFontSize } : null,
+                isMarkedCorrect && styles.badgeTextOnDark,
+                isMarkedIncorrect && styles.badgeTextOnDark,
+              ]}
+            >
+              {badgeLabel}
+            </Text>
+          </View>
+
+          <Text
+            allowFontScaling={false}
+            style={[
+              styles.optionText,
+              { color: textColor },
+              layout
+                ? {
+                    fontSize: layout.optionTextFontSize,
+                    lineHeight: layout.optionTextLineHeight,
+                  }
+                : null,
+            ]}
+          >
+            {option}
           </Text>
-        </View>
-
-        <Text style={[styles.optionText, { color: textColor }]}>{option}</Text>
-
-        <View
-          style={[
-            styles.trailingCircle,
-            isMarkedCorrect && styles.trailingCircleCorrect,
-            isMarkedIncorrect && styles.trailingCircleIncorrect,
-          ]}
-        >
-          {isMarkedCorrect && <View style={styles.check} />}
-        </View>
+        </TouchableOpacity>
       </LinearGradient>
-    </TouchableOpacity>
+    </View>
   );
 };
 
@@ -87,21 +122,27 @@ const styles = StyleSheet.create({
   container: {
     borderRadius: radiusScale(22),
     marginVertical: spaceScale(6),
-    shadowColor: '#0A102E',
+    shadowColor: '#04131D',
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.22,
+    shadowOpacity: 0.16,
     shadowRadius: 18,
     elevation: 5,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(124,233,248,0.15)',
+    borderColor: 'rgba(20,184,166,0.22)',
   },
   gradient: {
-    minHeight: verticalScale(66),
+    minHeight: verticalScale(62),
     borderRadius: radiusScale(22),
-    padding: spaceScale(16),
+    padding: spaceScale(14),
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  selectableArea: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: spaceScale(12),
   },
   badge: {
     width: spaceScale(34),
@@ -112,17 +153,17 @@ const styles = StyleSheet.create({
     marginRight: spaceScale(14),
   },
   badgeDefault: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.12)',
   },
   badgeCorrect: {
-    backgroundColor: 'rgba(139,92,246,0.95)',
+    backgroundColor: 'rgba(255,255,255,0.20)',
   },
   badgeIncorrect: {
-    backgroundColor: 'rgba(255,255,255,0.16)',
+    backgroundColor: 'rgba(255,244,238,0.20)',
   },
   badgeText: {
     color: '#F4F7FF',
-    fontSize: fontScale(13),
+    fontSize: fontScale(12),
     fontWeight: '700',
   },
   badgeTextOnDark: {
@@ -130,33 +171,8 @@ const styles = StyleSheet.create({
   },
   optionText: {
     flex: 1,
-    fontSize: fontScale(15),
-    lineHeight: fontScale(22),
-    fontWeight: '500',
-  },
-  trailingCircle: {
-    width: spaceScale(20),
-    height: spaceScale(20),
-    borderRadius: radiusScale(10),
-    backgroundColor: 'rgba(255,255,255,0.16)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: spaceScale(12),
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.18)',
-  },
-  trailingCircleCorrect: {
-    backgroundColor: colors.gradientStart,
-    borderColor: colors.gradientStart,
-  },
-  trailingCircleIncorrect: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderColor: 'rgba(255,255,255,0.18)',
-  },
-  check: {
-    width: spaceScale(8),
-    height: spaceScale(8),
-    borderRadius: radiusScale(4),
-    backgroundColor: '#F8F4FF',
+    fontSize: fontScale(14),
+    lineHeight: fontScale(20),
+    fontWeight: '600',
   },
 });

@@ -476,12 +476,12 @@ const styles = StyleSheet.create({
   characterRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    justifyContent: 'space-between',
+    gap: 12,
     paddingHorizontal: 6,
     minHeight: 170,
   },
   characterColumn: {
-    width: '47%',
+    flex: 1,
     alignItems: 'center',
   },
   avatarTouch: {

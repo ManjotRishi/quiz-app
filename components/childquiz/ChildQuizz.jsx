@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, {
@@ -8,26 +8,30 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Advertisement from '../Advertisement';
+import BottomBanner from '../BottomBanner';
 import TimeOverOverlay from '../TimeOverOverlay';
 import QuestionClock from '../QuestionClock';
-import { BackIcon, HomeIcon } from '../icons';
+import { HomeIcon } from '../icons';
+import QuestionExportControls from '../QuestionExportControls';
+import { useFavouriteQuestion } from '../../hooks/useFavouriteQuestion';
 import {
   ChildQuizBunnyIllustration,
   ChildQuizDinoIllustration,
   ChildQuizPlaygroundIllustration,
   ChildQuizRobotIllustration,
 } from '../svg';
+import { useAdManager } from '../../hooks/useAdManager';
 import { ROUTES } from '../../navigation/routes';
 import { INITIAL_TIME } from '../../util/constants';
 import { formatTimer } from '../../util/functions';
 import { fontScale, radiusScale, spaceScale } from '../../style/responsive';
+import { exportQuestionTextFile } from '../../util/questionExport';
 
 const optionPalette = [
-  ['#F97316', '#FB7185'],
-  ['#14B8A6', '#22C55E'],
-  ['#8B5CF6', '#EC4899'],
-  ['#3B82F6', '#06B6D4'],
+  ['#119A94', '#30B8D3', '#F59E0B'],
+  ['#13998E', '#3ABAD1', '#FB923C'],
+  ['#149D8D', '#2CB5C8', '#FBBF24'],
+  ['#0FA59B', '#38BDF8', '#F59E0B'],
 ];
 
 const stylesSeed = StyleSheet.create({
@@ -101,6 +105,7 @@ const ChildQuizz = ({
   currentIndex,
   selectedOption,
   currentCorrect,
+  attemptedQuestions,
   feedbackMessage,
   quizStarted,
   quizTitle,
@@ -113,13 +118,51 @@ const ChildQuizz = ({
   shakeStyle,
   handleSelect,
   handleNext,
+  handlePrevious,
   handleStartQuiz,
+  isSoundMuted,
+  isVoiceMuted,
+  setIsSoundMuted,
+  setIsVoiceMuted,
   showTimeOver,
 }) => {
   const progressWidth = `${totalQuestions ? (seconds / INITIAL_TIME) * 100 : 0}%`;
   const thumbsScale = useSharedValue(0.4);
   const thumbsOpacity = useSharedValue(0);
   const [cartoons, setCartoons] = useState(() => pickRandomCartoons());
+  const { showInterstitial } = useAdManager();
+  const favouritePayload = useCallback(() => {
+    if (!question?.question) {
+      return null;
+    }
+
+    return {
+      quizTitle: quizTitle || 'Child Quiz',
+      source: 'child-quiz',
+      questionText: question.question,
+      answerText: correctOption || question?.answer || '',
+      options: question?.options || [],
+      questionNumber: currentIndex + 1,
+      totalQuestions,
+    };
+  }, [correctOption, currentIndex, question, quizTitle, totalQuestions]);
+  const {
+    isFavourite,
+    isSavingFavourite,
+    handleSaveFavourite,
+  } = useFavouriteQuestion({ getPayload: favouritePayload });
+
+  const handleExitNavigation = (action) => {
+    const didShow = showInterstitial({
+      placement: 'quiz_exit',
+      attemptedQuestions,
+      onClosed: action,
+    });
+
+    if (!didShow) {
+      action();
+    }
+  };
 
   useEffect(() => {
     if (!quizStarted) {
@@ -158,6 +201,17 @@ const ChildQuizz = ({
     transform: [{ scale: thumbsScale.value }],
   }));
 
+  const handleDownload = useCallback(() => {
+    exportQuestionTextFile({
+      quizTitle: quizTitle || 'Child Quiz',
+      questionNumber: currentIndex + 1,
+      totalQuestions,
+      questionText: question?.question || '',
+      options: question?.options || [],
+      correctAnswer: correctOption || question?.answer || '',
+    });
+  }, [correctOption, currentIndex, question?.answer, question?.options, question?.question, quizTitle, totalQuestions]);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor="#120A25" translucent={false} />
@@ -182,18 +236,25 @@ const ChildQuizz = ({
           </View>
         </Animated.View>
 
-        <View style={styles.bannerWrap}>
-          <Advertisement banner containerStyle={styles.banner} />
-        </View>
-
         <View style={styles.fixedPanelWrap}>
           <View style={styles.topActionRow}>
             <TouchableOpacity
               activeOpacity={0.9}
-              onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate(ROUTES.Home))}
-              style={styles.topIconButton}
+              onPress={() => handleExitNavigation(() => navigation.navigate(ROUTES.Home))}
+              style={styles.topHomeButton}
             >
-              <BackIcon color="#F8FAFC" size={18} />
+              <HomeIcon color="#F8FAFC" size={18} />
+            </TouchableOpacity>
+
+            <TouchableOpacity activeOpacity={0.9} onPress={handlePrevious} style={styles.topPreviousButton}>
+              <LinearGradient
+                colors={['rgba(18,52,73,0.96)', 'rgba(56,189,248,0.86)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.topPreviousButtonFill}
+              >
+                <Text style={styles.topButtonText}>Previous</Text>
+              </LinearGradient>
             </TouchableOpacity>
 
             <TouchableOpacity activeOpacity={0.9} onPress={handleNext} style={styles.topNextButton}>
@@ -203,16 +264,8 @@ const ChildQuizz = ({
                 end={{ x: 1, y: 1 }}
                 style={styles.topNextButtonFill}
               >
-                <Text style={styles.topNextButtonText}>{isLastQuestion ? 'Finish' : 'Next'}</Text>
+                <Text style={styles.topButtonText}>{isLastQuestion ? 'Finish' : 'Next'}</Text>
               </LinearGradient>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={0.9}
-              onPress={() => navigation.navigate(ROUTES.Home)}
-              style={styles.topIconButton}
-            >
-              <HomeIcon color="#F8FAFC" size={18} />
             </TouchableOpacity>
           </View>
 
@@ -260,6 +313,21 @@ const ChildQuizz = ({
             </View>
 
             <View style={styles.questionPanel}>
+              <View style={styles.exportRow}>
+                <QuestionExportControls
+                  onPressSound={() => setIsSoundMuted?.((prev) => !prev)}
+                  onPressVoice={() => setIsVoiceMuted?.((prev) => !prev)}
+                  onPressDownload={handleDownload}
+                  onPressFavourite={handleSaveFavourite}
+                  favourited={isFavourite}
+                  favouriteLoading={isSavingFavourite}
+                  soundMuted={isSoundMuted}
+                  voiceMuted={isVoiceMuted}
+                  showSound
+                  showVoice
+                  variant="lightPanel"
+                />
+              </View>
               <Text style={styles.questionText}>{question?.question || ''}</Text>
               {question?.helper ? <Text style={styles.helperText}>{question.helper}</Text> : null}
             </View>
@@ -319,6 +387,7 @@ const ChildQuizz = ({
           </Animated.View>
         </ScrollView>
 
+        <BottomBanner />
         <TimeOverOverlay visible={showTimeOver} label="Time Over" />
       </LinearGradient>
     </SafeAreaView>
@@ -410,25 +479,8 @@ const styles = StyleSheet.create({
   },
   fixedPanelWrap: {
     paddingHorizontal: spaceScale(18),
-    paddingTop: spaceScale(68),
+    paddingTop: spaceScale(16),
     paddingBottom: spaceScale(10),
-  },
-  bannerWrap: {
-    position: 'absolute',
-    top: spaceScale(-20),
-    left: spaceScale(18),
-    right: spaceScale(18),
-    zIndex: 20,
-    elevation: 20,
-  },
-  banner: {
-    paddingVertical: spaceScale(10),
-    borderRadius: radiusScale(22),
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(9, 7, 19, 0.22)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
   },
   topActionRow: {
     flexDirection: 'row',
@@ -437,7 +489,7 @@ const styles = StyleSheet.create({
     gap: spaceScale(10),
     marginBottom: spaceScale(12),
   },
-  topIconButton: {
+  topHomeButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -446,6 +498,18 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.12)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  topPreviousButton: {
+    flex: 1,
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
+  topPreviousButtonFill: {
+    minHeight: 42,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
   },
   topNextButton: {
     flex: 1,
@@ -459,7 +523,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 16,
   },
-  topNextButtonText: {
+  topButtonText: {
     color: '#FFFFFF',
     fontSize: fontScale(14),
     fontWeight: '900',
@@ -471,8 +535,8 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: spaceScale(18),
-    paddingTop: spaceScale(10),
-    paddingBottom: spaceScale(28),
+    paddingTop: spaceScale(16),
+    paddingBottom: spaceScale(40),
   },
   cartoonBubble: {
     width: 108,
@@ -523,27 +587,36 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: fontScale(17),
     fontWeight: '800',
+    flexWrap: 'wrap',
   },
   mascotChip: {
     paddingHorizontal: 14,
     paddingVertical: 9,
     borderRadius: 999,
     backgroundColor: 'rgba(255,255,255,0.08)',
+    maxWidth: '38%',
   },
   mascotChipText: {
     color: '#F8FAFC',
     fontSize: fontScale(12),
     fontWeight: '800',
+    textAlign: 'center',
   },
   questionPanel: {
     marginTop: spaceScale(16),
     paddingHorizontal: 16,
     paddingVertical: 18,
     borderRadius: radiusScale(24),
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: '#EEFAF1',
+    borderWidth: 1,
+    borderColor: 'rgba(22,163,74,0.14)',
+  },
+  exportRow: {
+    alignItems: 'flex-end',
+    marginBottom: spaceScale(10),
   },
   questionText: {
-    color: '#FFFFFF',
+    color: '#173727',
     fontSize: fontScale(18),
     lineHeight: fontScale(25),
     fontWeight: '900',
@@ -551,7 +624,7 @@ const styles = StyleSheet.create({
   },
   helperText: {
     marginTop: 8,
-    color: 'rgba(255,255,255,0.72)',
+    color: '#557064',
     fontSize: fontScale(13),
     lineHeight: fontScale(20),
     textAlign: 'center',
@@ -580,6 +653,7 @@ const styles = StyleSheet.create({
     fontSize: fontScale(17),
     fontWeight: '900',
     textAlign: 'center',
+    width: '100%',
   },
   feedbackCard: {
     marginTop: spaceScale(4),

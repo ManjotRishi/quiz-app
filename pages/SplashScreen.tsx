@@ -513,7 +513,7 @@ const SplashScreen = ({ navigation }: Props) => {
       }),
     ]).start(({ finished }) => {
       if (finished) {
-        navigation.replace(ROUTES.QuizBoard);
+        navigation.replace(ROUTES.Home);
         return;
       }
 
@@ -530,7 +530,7 @@ const SplashScreen = ({ navigation }: Props) => {
       <Animated.View style={[styles.heroWrap, { opacity: fade }]}>
         <Animated.View style={{ flex: 1, transform: [{ scale: zoomAnim }] }}>
           <ImageBackground
-            source={require('../assets/images/splashmain.png')}
+            source={require('../assets/images/splashmain2.png')}
             style={styles.hero}
             resizeMode="cover"
           >
@@ -561,7 +561,7 @@ const SplashScreen = ({ navigation }: Props) => {
                   >
                     {/* 🌌 SKY STYLE BUTTON */}
                     <LinearGradient
-                      colors={['rgba(11,31,94,0.42)', 'rgba(36,59,143,0.42)', 'rgba(201,167,255,0.42)']}
+                      colors={['rgba(20,184,166,0.42)', 'rgba(56,189,248,0.42)', 'rgba(251,146,60,0.36)']}
                       start={{ x: 0, y: 0.2 }}
                       end={{ x: 1, y: 1 }}
                       onLayout={(event) => setButtonWidth(event.nativeEvent.layout.width)}
@@ -577,7 +577,7 @@ const SplashScreen = ({ navigation }: Props) => {
                         ]}
                       >
                         <LinearGradient
-                          colors={['#0B1F5E', '#243B8F', '#C9A7FF']}
+                          colors={['#14B8A6', '#38BDF8', '#FB923C']}
                           start={{ x: 0, y: 0 }}
                           end={{ x: 1, y: 1 }}
                           style={styles.buttonBallGradient}
@@ -651,8 +651,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spaceScale(60),
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(214,194,255,0.2)',
-    shadowColor: '#182B74',
+    borderColor: 'rgba(125,211,252,0.24)',
+    shadowColor: '#0D3942',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.22,
     shadowRadius: 14,
@@ -664,7 +664,7 @@ const styles = StyleSheet.create({
     width: BUTTON_BALL_SIZE,
     height: BUTTON_BALL_SIZE,
     borderRadius: 999,
-    shadowColor: '#DCC9FF',
+    shadowColor: '#7DD3FC',
     shadowOpacity: 0.35,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 0 },

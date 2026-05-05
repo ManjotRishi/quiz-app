@@ -1,15 +1,17 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { useNavigationState } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useIsFocused } from '@react-navigation/native';
 import LinearGradient from 'react-native-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GradientButton } from '../components/GradientButton';
-import Advertisement from '../components/Advertisement';
-import { useInterstitialAd } from '../hooks/useInterstitialAd';
+import BottomBanner from '../components/BottomBanner';
+import TopBanner from '../components/TopBanner';
+import { useAdManager } from '../hooks/useAdManager';
+import { useRewardedScreenEntryAd } from '../hooks/useRewardedScreenEntryAd';
 import { ROUTES } from '../navigation/routes';
 import { colors } from '../style/colors';
-import { fontScale, radiusScale, spaceScale, verticalScale } from '../style/responsive';
+import { fontScale, radiusScale, spaceScale } from '../style/responsive';
 import { formatTimer, getScoreMessage } from '../util/functions';
 import {
   getOverallQuizStats,
@@ -20,13 +22,34 @@ import {
 import { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Score'>;
+type TopicStatsShape = {
+  totalQuestions: number;
+  attempted: number;
+  correct: number;
+  failed: number;
+  unattempted: number;
+  quizzesPlayed: number;
+  lastUpdatedAt: string | null;
+};
 
 const Score = ({ navigation, route }: Props) => {
-  const { prepareAdv, startAdv } = useInterstitialAd();
-  const hasShownThisVisitRef = useRef(false);
-  const showAdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const adWatchdogTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isTopRoute = useNavigationState((state) => state.routes[state.index]?.key === route.key);
+  const isFocused = useIsFocused();
+  const {
+    preloadRewarded,
+    rewardedLoaded,
+    showRewarded,
+  } = useAdManager();
+  const safeParams = route?.params ?? {
+    quizType: 'gk' as const,
+    quizLabel: 'GK' as const,
+    totalQuestions: 0,
+    correctAnswers: 0,
+    wrongAnswers: 0,
+    notAttemptedAnswers: 0,
+    timeTakenSeconds: 0,
+    accuracy: 0,
+    fromQuizFlow: false,
+  };
   const {
     quizType,
     quizLabel,
@@ -36,285 +59,219 @@ const Score = ({ navigation, route }: Props) => {
     notAttemptedAnswers,
     timeTakenSeconds,
     accuracy,
-  } = route.params;
+    fromQuizFlow = false,
+  } = safeParams;
 
   const currentTopicMeta = getQuizTopicMeta(quizType);
   const currentCategoryLabel = quizLabel ?? currentTopicMeta.label;
-  const reportTitle = 'Learning Report';
-  const currentRunLabel = `${currentCategoryLabel} Run`;
-  const wrongAnswerCount = wrongAnswers;
-  const scorePoints = correctAnswers * 10;
+  const baseScorePoints = correctAnswers * 10;
   const message = getScoreMessage(accuracy);
-  const attemptedAnswers = totalQuestions - notAttemptedAnswers;
+  const attemptedAnswers = Math.max(0, totalQuestions - notAttemptedAnswers);
+  const [isScoreDoubled, setIsScoreDoubled] = useState(false);
+  const [rewardFeedback, setRewardFeedback] = useState('');
+
+  const storedTopicStats = readQuizTopicStats() as Record<string, TopicStatsShape>;
+  const currentTopicAttempted = Math.max(0, correctAnswers + wrongAnswers);
+  const currentTopicTotals = Math.max(totalQuestions, currentTopicAttempted + notAttemptedAnswers);
+  const currentTopicKey = currentTopicMeta.key;
+  const currentStoredTopic = storedTopicStats[currentTopicKey] ?? {
+    totalQuestions: 0,
+    attempted: 0,
+    correct: 0,
+    failed: 0,
+    unattempted: 0,
+    quizzesPlayed: 0,
+    lastUpdatedAt: null,
+  };
+  const hydratedTopicStats = {
+    ...storedTopicStats,
+    [currentTopicKey]: {
+      ...currentStoredTopic,
+      totalQuestions: Math.max(currentStoredTopic.totalQuestions, currentTopicTotals),
+      attempted: Math.max(currentStoredTopic.attempted, currentTopicAttempted),
+      correct: Math.max(currentStoredTopic.correct, correctAnswers),
+      failed: Math.max(currentStoredTopic.failed, wrongAnswers),
+      unattempted: Math.max(currentStoredTopic.unattempted, notAttemptedAnswers),
+      quizzesPlayed: Math.max(currentStoredTopic.quizzesPlayed, totalQuestions > 0 ? 1 : 0),
+    },
+  };
+  const topicReport = getTopicStatsSummary(hydratedTopicStats);
+  const overallStats = getOverallQuizStats(hydratedTopicStats);
+  const shouldShowRewardButton = fromQuizFlow && attemptedAnswers >= 1;
+  const displayedScorePoints = isScoreDoubled ? baseScorePoints * 2 : baseScorePoints;
 
   useEffect(() => {
-    prepareAdv();
-  }, [prepareAdv]);
+    preloadRewarded();
+  }, [preloadRewarded]);
 
-  useEffect(() => {
-    if (!isTopRoute) {
-      hasShownThisVisitRef.current = false;
-      if (showAdTimerRef.current) {
-        clearTimeout(showAdTimerRef.current);
-        showAdTimerRef.current = null;
+  useRewardedScreenEntryAd({
+    enabled: fromQuizFlow && isFocused && !isScoreDoubled,
+    placement: 'score_entry_reward',
+    attemptedQuestions: Math.max(attemptedAnswers, 1),
+    onRewardEarned: () => {
+      setIsScoreDoubled(true);
+      setRewardFeedback('Reward earned. Your score has been doubled.');
+    },
+    onClosed: ({ rewardEarned } = {}) => {
+      if (!rewardEarned) {
+        setRewardFeedback('Reward ad closed before reward was earned. You can still use the button below.');
       }
-      if (adWatchdogTimerRef.current) {
-        clearTimeout(adWatchdogTimerRef.current);
-        adWatchdogTimerRef.current = null;
-      }
+    },
+  });
+
+  const rewardedButtonLabel = useMemo(() => {
+    if (isScoreDoubled) {
+      return 'Score Doubled';
+    }
+
+    if (!rewardedLoaded) {
+      return 'Loading Reward';
+    }
+
+    return 'Watch Ad to Double Score';
+  }, [isScoreDoubled, rewardedLoaded]);
+
+  const handleDoubleScore = () => {
+    if (isScoreDoubled || !shouldShowRewardButton) {
       return;
     }
 
-    if (hasShownThisVisitRef.current) {
-      return;
+    const didStart = showRewarded({
+      placement: 'double_score',
+      attemptedQuestions: attemptedAnswers,
+      onRewardEarned: () => {
+        setIsScoreDoubled(true);
+        setRewardFeedback('Reward earned. Your score has been doubled.');
+      },
+      onClosed: ({ rewardEarned } = {}) => {
+        if (!rewardEarned) {
+          setRewardFeedback('Ad closed before reward was earned.');
+        }
+      },
+    });
+
+    if (!didStart) {
+      setRewardFeedback('Reward ad is not ready yet. Please try again in a moment.');
     }
+  };
 
-    hasShownThisVisitRef.current = true;
-
-    if (showAdTimerRef.current) {
-      clearTimeout(showAdTimerRef.current);
-    }
-
-    showAdTimerRef.current = setTimeout(() => {
-      if (adWatchdogTimerRef.current) {
-        clearTimeout(adWatchdogTimerRef.current);
-      }
-
-      adWatchdogTimerRef.current = setTimeout(() => {
-        adWatchdogTimerRef.current = null;
-      }, 20000);
-
-      const started = startAdv({
-        placementKey: 'score-screen-visit',
-        cooldownMs: 0,
-        onClosed: () => {
-          if (adWatchdogTimerRef.current) {
-            clearTimeout(adWatchdogTimerRef.current);
-            adWatchdogTimerRef.current = null;
-          }
-        },
-      });
-
-      if (!started && adWatchdogTimerRef.current) {
-        clearTimeout(adWatchdogTimerRef.current);
-        adWatchdogTimerRef.current = null;
-      }
-    }, 650);
-
-    return () => {
-      if (showAdTimerRef.current) {
-        clearTimeout(showAdTimerRef.current);
-        showAdTimerRef.current = null;
-      }
-      if (adWatchdogTimerRef.current) {
-        clearTimeout(adWatchdogTimerRef.current);
-        adWatchdogTimerRef.current = null;
-      }
-    };
-  }, [isTopRoute, startAdv]);
-
-  useEffect(() => () => {
-    if (showAdTimerRef.current) {
-      clearTimeout(showAdTimerRef.current);
-    }
-    if (adWatchdogTimerRef.current) {
-      clearTimeout(adWatchdogTimerRef.current);
-    }
-  }, []);
-
-  const storedTopicStats = readQuizTopicStats();
-  const topicReport = getTopicStatsSummary(storedTopicStats).sort(
-    (a, b) => b.focusRate - a.focusRate || b.failed - a.failed || b.attempted - a.attempted
-  );
-  const overallStats = getOverallQuizStats(storedTopicStats);
-  const trackedTopics = topicReport.filter((item) => item.attempted > 0);
-  const totalTrackedAttempts = overallStats.attempted;
-
-  const overallChips = [
-    { label: 'Attempted', value: overallStats.attempted, color: currentTopicMeta.accent },
-    { label: 'Correct', value: overallStats.correct, color: '#1F9D67' },
-    { label: 'Wrong', value: overallStats.failed, color: '#D94C4C' },
+  const runMetrics = [
+    { label: 'Accuracy', value: `${accuracy}%` },
+    { label: 'Time', value: formatTimer(timeTakenSeconds) },
+    { label: 'Attempted', value: attemptedAnswers },
   ];
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor={colors.background} translucent={false} />
-
-      <LinearGradient
-        colors={['#04020A', '#1A0B33', '#250D4A', '#09102A']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.container}
-      >
-        <View style={styles.bannerWrap}>
-          <Advertisement banner containerStyle={styles.banner} />
-        </View>
-        <View style={styles.bubbleOne} />
-        <View style={styles.bubbleTwo} />
-        <View style={styles.bubbleThree} />
+      <LinearGradient colors={['#061722', '#0D2433', '#14384A']} style={styles.container}>
+        <View style={styles.glowTop} />
+        <View style={styles.glowBottom} />
+        <TopBanner />
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-          <View style={styles.topLabelRow}>
-            <View style={styles.topLabel}>
-              <Text style={styles.topLabelText}>{reportTitle}</Text>
-            </View>
-
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={() => navigation.replace(ROUTES.Home)}
-              style={styles.topArrowButton}
-            >
-              <Text style={styles.topArrowText}>Home</Text>
+          <View style={styles.topRow}>
+            <Text style={styles.topLabel}>Test Complete</Text>
+            <TouchableOpacity activeOpacity={0.88} onPress={() => navigation.replace(ROUTES.Home)} style={styles.topButton}>
+              <Text style={styles.topButtonText}>Home</Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.heroCard}>
-            <LinearGradient
-              colors={['#1B1D34', '#24253D', '#2C2A44']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 0, y: 1 }}
-              style={styles.heroSurface}
-            >
-              <View style={styles.heroHeaderRow}>
-                <View
-                  style={[
-                    styles.heroBadge,
-                    {
-                      borderColor: currentTopicMeta.accent,
-                      backgroundColor: currentTopicMeta.glow,
-                    },
-                  ]}
-                >
-                  <Text style={styles.heroBadgeText}>{currentRunLabel}</Text>
+            <Text style={styles.heroKicker}>{currentCategoryLabel}</Text>
+            <Text style={styles.heroTitle}>{message}</Text>
+            <Text style={styles.heroSubtitle}>
+              {correctAnswers} correct, {wrongAnswers} wrong, {notAttemptedAnswers} unattempted from {totalQuestions} questions.
+            </Text>
+
+            <View style={styles.scoreRingShell}>
+              <LinearGradient colors={['#14B8A6', '#FB923C']} style={styles.scoreRing}>
+                <View style={styles.scoreRingInner}>
+                  <Text style={styles.scoreValue}>{accuracy}%</Text>
+                  <Text style={styles.scoreLabel}>Score</Text>
                 </View>
-
-                <View style={styles.heroMiniPill}>
-                  <Text style={styles.heroMiniText}>{currentTopicMeta.title}</Text>
-                </View>
-              </View>
-
-              <Text style={styles.headline}>{message}</Text>
-              <Text style={styles.subline}>
-                Latest run: {currentCategoryLabel} total {totalQuestions}. {correctAnswers} correct,{' '}
-                {wrongAnswerCount} wrong, {notAttemptedAnswers} unattempted.
-              </Text>
-
-              <View style={styles.scoreBlock}>
-                <Text style={styles.rankValue}>{scorePoints}</Text>
-                <Text style={styles.rankLabel}>Points Earned</Text>
-              </View>
-            </LinearGradient>
-
-            <View style={styles.summaryStrip}>
-              <View style={styles.summaryChip}>
-                <Text style={styles.summaryNumber}>{accuracy}%</Text>
-                <Text style={styles.summaryLabel}>Accuracy</Text>
-              </View>
-              <View style={styles.summaryChip}>
-                <Text style={styles.summaryNumber}>{formatTimer(timeTakenSeconds)}</Text>
-                <Text style={styles.summaryLabel}>Time</Text>
-              </View>
-              <View style={styles.summaryChip}>
-                <Text style={styles.summaryNumber}>{attemptedAnswers}</Text>
-                <Text style={styles.summaryLabel}>Attempted</Text>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.sectionCard}>
-            <View style={styles.sectionHeaderRow}>
-              <View>
-                <Text style={styles.sectionTitle}>Overall Totals</Text>
-                <Text style={styles.sectionSubtitle}>
-                  {trackedTopics.length} topics tracked, {totalTrackedAttempts} total attempts.
-                </Text>
-              </View>
-              <View style={styles.sectionBadge}>
-                <Text style={styles.sectionBadgeText}>{overallStats.attempted}</Text>
-              </View>
+              </LinearGradient>
             </View>
 
-            <View style={styles.overallStrip}>
-              {overallChips.map((item) => (
-                <View key={item.label} style={styles.overallChip}>
-                  <Text style={[styles.overallValue, { color: item.color }]}>{item.value}</Text>
-                  <Text style={styles.overallLabel}>{item.label}</Text>
+            <View style={styles.metricRow}>
+              {runMetrics.map((item) => (
+                <View key={item.label} style={styles.metricCard}>
+                  <Text style={styles.metricValue}>{item.value}</Text>
+                  <Text style={styles.metricLabel}>{item.label}</Text>
                 </View>
               ))}
             </View>
           </View>
 
           <View style={styles.sectionCard}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Points Earned</Text>
+              <View style={[styles.topicBadge, { backgroundColor: currentTopicMeta.glow }]}>
+                <Text style={[styles.topicBadgeText, { color: currentTopicMeta.accent }]}>{currentTopicMeta.label}</Text>
+              </View>
+            </View>
+            <Text style={styles.pointsValue}>{displayedScorePoints}</Text>
+            <Text style={styles.sectionText}>This keeps your reward flow intact. If the user watches a rewarded ad, the score doubles once.</Text>
+          </View>
+
+          <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>Topic Breakdown</Text>
-            <Text style={styles.sectionSubtitle}>
-              Topics with higher failed rate appear first so users know where to focus.
-            </Text>
+            <Text style={styles.sectionText}>A quick view of today&apos;s running progress across the whole app.</Text>
 
             <View style={styles.topicList}>
-              {topicReport.map((item, index) => {
-                const barWidth: `${number}%` | 0 = item.attempted
-                  ? `${Math.min(100, Math.max(10, item.focusRate || 0))}%`
-                  : 0;
-                const highlightColor =
-                  index === 0 && item.attempted > 0 ? item.accent : 'rgba(255,255,255,0.20)';
-
-                return (
-                  <View key={item.key} style={styles.topicCard}>
-                    <View style={styles.topicTopRow}>
-                      <View
-                        style={[
-                          styles.topicBadge,
-                          {
-                            borderColor: item.accent,
-                            backgroundColor: item.glow,
-                          },
-                        ]}
-                      >
-                        <Text style={styles.topicBadgeText}>{item.label}</Text>
-                      </View>
-
-                      <Text style={styles.topicAccuracy}>{item.attempted ? `${item.accuracy}% accuracy` : 'No attempts yet'}</Text>
-                    </View>
-
+              {topicReport.map((item) => (
+                <View key={item.key} style={styles.topicCard}>
+                  <View style={styles.topicTopRow}>
                     <Text style={styles.topicTitle}>{item.title}</Text>
-
-                    <View style={styles.topicStatsRow}>
-                      <View style={styles.topicStat}>
-                        <Text style={styles.topicStatValue}>{item.attempted}</Text>
-                        <Text style={styles.topicStatLabel}>Attempted</Text>
-                      </View>
-                      <View style={styles.topicStat}>
-                        <Text style={styles.topicStatValue}>{item.failed}</Text>
-                        <Text style={styles.topicStatLabel}>Failed</Text>
-                      </View>
-                      <View style={styles.topicStat}>
-                        <Text style={styles.topicStatValue}>{item.correct}</Text>
-                        <Text style={styles.topicStatLabel}>Correct</Text>
-                      </View>
-                    </View>
-
-                    <View style={styles.topicTrack}>
-                      <View
-                        style={[
-                          styles.topicFill,
-                          {
-                            width: barWidth,
-                            backgroundColor: highlightColor,
-                          },
-                        ]}
-                      />
-                    </View>
-
-                    <Text style={styles.topicHint}>
-                      {item.attempted
-                        ? `Failed ${item.failed} out of ${item.attempted} attempts`
-                        : 'Attempt this quiz to start building the report.'}
-                    </Text>
+                    <Text style={styles.topicAccuracy}>{item.accuracy}%</Text>
                   </View>
-                );
-              })}
+                  <Text style={styles.topicMeta}>
+                    {item.correct} correct • {item.failed} wrong • {item.unattempted} skipped
+                  </Text>
+                  <View style={styles.progressTrack}>
+                    <LinearGradient
+                      colors={[item.accent, '#FFFFFF']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={[styles.progressFill, { width: `${Math.max(10, item.accuracy)}%` }]}
+                    />
+                  </View>
+                </View>
+              ))}
             </View>
           </View>
+
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Daily Totals</Text>
+            <View style={styles.overviewRow}>
+              <View style={styles.overviewChip}>
+                <Text style={styles.overviewValue}>{overallStats.attempted}</Text>
+                <Text style={styles.overviewLabel}>Attempted</Text>
+              </View>
+              <View style={styles.overviewChip}>
+                <Text style={styles.overviewValue}>{overallStats.correct}</Text>
+                <Text style={styles.overviewLabel}>Correct</Text>
+              </View>
+              <View style={styles.overviewChip}>
+                <Text style={styles.overviewValue}>{overallStats.score}</Text>
+                <Text style={styles.overviewLabel}>Score</Text>
+              </View>
+            </View>
+          </View>
+
+          {shouldShowRewardButton ? (
+            <View style={styles.sectionCard}>
+              <Text style={styles.sectionTitle}>Bonus Reward</Text>
+              <Text style={styles.sectionText}>Rewarded ads are still optional. Watch once to double this run&apos;s score.</Text>
+              <GradientButton
+                label={rewardedButtonLabel}
+                onPress={handleDoubleScore}
+                style={styles.rewardButton}
+                disabled={isScoreDoubled || !rewardedLoaded}
+              />
+              {rewardFeedback ? <Text style={styles.rewardText}>{rewardFeedback}</Text> : null}
+            </View>
+          ) : null}
 
           <GradientButton
             label="Explore More"
@@ -326,6 +283,7 @@ const Score = ({ navigation, route }: Props) => {
             <Text style={styles.homeText}>Back Home</Text>
           </TouchableOpacity>
         </ScrollView>
+        <BottomBanner />
       </LinearGradient>
     </SafeAreaView>
   );
@@ -336,339 +294,257 @@ export default Score;
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#04020A',
+    backgroundColor: colors.background,
   },
   container: {
     flex: 1,
-    paddingHorizontal: spaceScale(20),
-    paddingTop: spaceScale(18),
-    position: 'relative',
+  },
+  glowTop: {
+    position: 'absolute',
+    top: -90,
+    right: -60,
+    width: 230,
+    height: 230,
+    borderRadius: 230,
+    backgroundColor: 'rgba(20,184,166,0.18)',
+  },
+  glowBottom: {
+    position: 'absolute',
+    left: -70,
+    bottom: 160,
+    width: 220,
+    height: 220,
+    borderRadius: 220,
+    backgroundColor: 'rgba(251,146,60,0.14)',
   },
   scrollContent: {
-    paddingTop: spaceScale(90),
+    paddingHorizontal: spaceScale(18),
+    paddingTop: spaceScale(18),
     paddingBottom: spaceScale(28),
   },
-  bannerWrap: {
-    position: 'absolute',
-    top: spaceScale(-20),
-    left: spaceScale(20),
-    right: spaceScale(20),
-    zIndex: 30,
-    elevation: 30,
-  },
-  banner: {
-    paddingVertical: spaceScale(10),
-    borderRadius: radiusScale(22),
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(9, 7, 19, 0.22)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-  },
-  topLabelRow: {
+  topRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: spaceScale(18),
+    alignItems: 'center',
     gap: spaceScale(10),
   },
   topLabel: {
-    paddingHorizontal: spaceScale(14),
-    paddingVertical: spaceScale(10),
-    borderRadius: radiusScale(20),
-    backgroundColor: 'rgba(8,11,22,0.86)',
-    borderWidth: 1,
-    borderColor: 'rgba(84,150,255,0.18)',
-    alignSelf: 'flex-start',
-  },
-  topLabelText: {
-    color: '#F4F7FF',
-    fontSize: fontScale(14),
-    fontWeight: '700',
-  },
-  topArrowButton: {
-    minWidth: spaceScale(72),
-    height: spaceScale(42),
-    paddingHorizontal: spaceScale(14),
-    borderRadius: spaceScale(21),
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(8,11,22,0.86)',
-    borderWidth: 1,
-    borderColor: 'rgba(84,150,255,0.18)',
-  },
-  topArrowText: {
-    color: '#F4F7FF',
+    color: '#F8FBFF',
     fontSize: fontScale(15),
     fontWeight: '800',
-    letterSpacing: 0.4,
   },
-  heroCard: {
-    backgroundColor: 'rgba(7,10,18,0.72)',
-    borderRadius: radiusScale(34),
-    paddingHorizontal: spaceScale(18),
-    paddingTop: spaceScale(18),
-    paddingBottom: spaceScale(18),
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 0.34,
-    shadowRadius: 22,
-    elevation: 10,
-  },
-  heroSurface: {
-    borderRadius: radiusScale(28),
-    paddingHorizontal: spaceScale(18),
-    paddingTop: spaceScale(18),
-    paddingBottom: spaceScale(20),
-  },
-  heroHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spaceScale(10),
-  },
-  heroBadge: {
-    minHeight: spaceScale(38),
-    paddingHorizontal: spaceScale(14),
+  topButton: {
+    minWidth: spaceScale(76),
+    minHeight: spaceScale(42),
     borderRadius: radiusScale(999),
-    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
   },
-  heroBadgeText: {
-    color: '#F4F7FF',
+  topButtonText: {
+    color: '#F8FBFF',
     fontSize: fontScale(13),
     fontWeight: '800',
   },
-  heroMiniPill: {
-    minHeight: spaceScale(34),
-    paddingHorizontal: spaceScale(12),
+  heroCard: {
+    marginTop: spaceScale(16),
+    padding: spaceScale(20),
+    borderRadius: radiusScale(30),
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center',
+  },
+  heroKicker: {
+    color: '#FDE68A',
+    fontSize: fontScale(11),
+    fontWeight: '900',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+  },
+  heroTitle: {
+    marginTop: spaceScale(10),
+    color: '#F8FBFF',
+    fontSize: fontScale(28),
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  heroSubtitle: {
+    marginTop: spaceScale(8),
+    color: 'rgba(214,235,242,0.78)',
+    fontSize: fontScale(13),
+    lineHeight: fontScale(19),
+    textAlign: 'center',
+  },
+  scoreRingShell: {
+    marginTop: spaceScale(20),
+  },
+  scoreRing: {
+    width: spaceScale(170),
+    height: spaceScale(170),
     borderRadius: radiusScale(999),
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    padding: spaceScale(10),
+  },
+  scoreRingInner: {
+    flex: 1,
+    borderRadius: radiusScale(999),
+    backgroundColor: '#0D2232',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  heroMiniText: {
-    color: '#F4F7FF',
-    fontSize: fontScale(12),
-    fontWeight: '700',
+  scoreValue: {
+    color: '#F8FBFF',
+    fontSize: fontScale(36),
+    fontWeight: '900',
   },
-  headline: {
-    marginTop: spaceScale(24),
-    textAlign: 'center',
-    color: '#F4F7FF',
-    fontSize: fontScale(22),
-    lineHeight: fontScale(32),
-    fontWeight: '700',
-  },
-  subline: {
-    marginTop: spaceScale(8),
-    textAlign: 'center',
-    color: colors.textMuted,
-    fontSize: fontScale(16),
-    lineHeight: fontScale(24),
-  },
-  scoreBlock: {
-    marginTop: spaceScale(22),
-    alignItems: 'center',
-  },
-  rankValue: {
-    color: '#F4F7FF',
-    fontSize: fontScale(48),
-    fontWeight: '800',
-  },
-  rankLabel: {
+  scoreLabel: {
     marginTop: spaceScale(4),
-    color: 'rgba(220,232,255,0.84)',
-    fontSize: fontScale(16),
-    fontWeight: '600',
+    color: 'rgba(214,235,242,0.72)',
+    fontSize: fontScale(14),
+    fontWeight: '700',
   },
-  summaryStrip: {
+  metricRow: {
+    width: '100%',
+    marginTop: spaceScale(18),
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: spaceScale(16),
-    gap: 10,
+    gap: spaceScale(10),
   },
-  summaryChip: {
+  metricCard: {
     flex: 1,
-    borderRadius: radiusScale(20),
+    borderRadius: radiusScale(18),
     paddingVertical: spaceScale(14),
-    paddingHorizontal: spaceScale(12),
-    backgroundColor: 'rgba(7,10,18,0.72)',
+    paddingHorizontal: spaceScale(10),
+    backgroundColor: 'rgba(6,23,34,0.36)',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(84,150,255,0.16)',
   },
-  summaryNumber: {
-    color: '#F4F7FF',
-    fontSize: fontScale(17),
-    fontWeight: '800',
+  metricValue: {
+    color: '#F8FBFF',
+    fontSize: fontScale(16),
+    fontWeight: '900',
   },
-  summaryLabel: {
+  metricLabel: {
     marginTop: spaceScale(4),
-    color: colors.textMuted,
-    fontSize: fontScale(12),
-    fontWeight: '600',
+    color: 'rgba(214,235,242,0.72)',
+    fontSize: fontScale(10),
+    fontWeight: '700',
   },
   sectionCard: {
     marginTop: spaceScale(16),
-    backgroundColor: 'rgba(7,10,18,0.72)',
-    borderRadius: radiusScale(28),
     padding: spaceScale(18),
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.28,
-    shadowRadius: 16,
-    elevation: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(84,150,255,0.12)',
+    borderRadius: radiusScale(28),
+    backgroundColor: 'rgba(255,255,255,0.94)',
   },
-  sectionHeaderRow: {
+  sectionHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
     gap: spaceScale(12),
   },
   sectionTitle: {
-    color: '#F4F7FF',
+    color: '#163042',
     fontSize: fontScale(18),
-    fontWeight: '800',
+    fontWeight: '900',
   },
-  sectionSubtitle: {
+  sectionText: {
     marginTop: spaceScale(6),
-    color: colors.textMuted,
+    color: '#6F8794',
     fontSize: fontScale(12),
     lineHeight: fontScale(18),
-    fontWeight: '600',
   },
-  sectionBadge: {
-    minWidth: spaceScale(44),
-    height: spaceScale(34),
-    borderRadius: radiusScale(17),
+  topicBadge: {
     paddingHorizontal: spaceScale(12),
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(84,150,255,0.10)',
-    borderWidth: 1,
-    borderColor: 'rgba(84,150,255,0.18)',
+    paddingVertical: spaceScale(8),
+    borderRadius: radiusScale(999),
   },
-  sectionBadgeText: {
-    color: '#F4F7FF',
-    fontSize: fontScale(14),
-    fontWeight: '800',
+  topicBadgeText: {
+    fontSize: fontScale(11),
+    fontWeight: '900',
   },
-  overallStrip: {
-    flexDirection: 'row',
-    gap: spaceScale(10),
-    marginTop: spaceScale(16),
-  },
-  overallChip: {
-    flex: 1,
-    borderRadius: radiusScale(20),
-    paddingVertical: spaceScale(14),
-    paddingHorizontal: spaceScale(12),
-    alignItems: 'center',
-    backgroundColor: 'rgba(8,11,22,0.82)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-  },
-  overallValue: {
-    fontSize: fontScale(18),
-    fontWeight: '800',
-  },
-  overallLabel: {
-    marginTop: spaceScale(4),
-    color: colors.textMuted,
-    fontSize: fontScale(12),
-    fontWeight: '600',
+  pointsValue: {
+    marginTop: spaceScale(14),
+    color: '#163042',
+    fontSize: fontScale(42),
+    fontWeight: '900',
   },
   topicList: {
-    marginTop: spaceScale(14),
+    marginTop: spaceScale(12),
     gap: spaceScale(12),
   },
   topicCard: {
-    borderRadius: radiusScale(24),
-    padding: spaceScale(16),
-    backgroundColor: 'rgba(8,11,22,0.82)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderRadius: radiusScale(22),
+    padding: spaceScale(14),
+    backgroundColor: colors.cardMuted,
   },
   topicTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: spaceScale(10),
-  },
-  topicBadge: {
-    minHeight: spaceScale(34),
-    paddingHorizontal: spaceScale(12),
-    borderRadius: radiusScale(999),
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  topicBadgeText: {
-    color: '#F4F7FF',
-    fontSize: fontScale(12),
-    fontWeight: '800',
-  },
-  topicAccuracy: {
-    color: colors.textMuted,
-    fontSize: fontScale(12),
-    fontWeight: '700',
-    textAlign: 'right',
-    flexShrink: 1,
+    gap: spaceScale(12),
   },
   topicTitle: {
-    marginTop: spaceScale(12),
-    color: '#F4F7FF',
-    fontSize: fontScale(17),
+    color: '#163042',
+    fontSize: fontScale(14),
     fontWeight: '800',
-  },
-  topicStatsRow: {
-    flexDirection: 'row',
-    gap: spaceScale(10),
-    marginTop: spaceScale(14),
-  },
-  topicStat: {
     flex: 1,
-    borderRadius: radiusScale(18),
-    paddingVertical: spaceScale(12),
-    paddingHorizontal: spaceScale(10),
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.04)',
   },
-  topicStatValue: {
-    color: '#F4F7FF',
-    fontSize: fontScale(16),
-    fontWeight: '800',
+  topicAccuracy: {
+    color: '#163042',
+    fontSize: fontScale(12),
+    fontWeight: '900',
   },
-  topicStatLabel: {
-    marginTop: spaceScale(3),
-    color: colors.textMuted,
-    fontSize: fontScale(11),
+  topicMeta: {
+    marginTop: spaceScale(5),
+    color: '#6F8794',
+    fontSize: fontScale(12),
     fontWeight: '600',
   },
-  topicTrack: {
-    height: verticalScale(10),
-    borderRadius: 999,
-    marginTop: spaceScale(14),
-    backgroundColor: 'rgba(255,255,255,0.08)',
+  progressTrack: {
+    marginTop: spaceScale(10),
+    height: spaceScale(8),
+    borderRadius: radiusScale(999),
+    backgroundColor: '#DDE8ED',
     overflow: 'hidden',
   },
-  topicFill: {
+  progressFill: {
     height: '100%',
-    borderRadius: 999,
+    borderRadius: radiusScale(999),
   },
-  topicHint: {
+  overviewRow: {
+    marginTop: spaceScale(14),
+    flexDirection: 'row',
+    gap: spaceScale(10),
+  },
+  overviewChip: {
+    flex: 1,
+    borderRadius: radiusScale(18),
+    paddingVertical: spaceScale(14),
+    paddingHorizontal: spaceScale(10),
+    backgroundColor: colors.cardMuted,
+    alignItems: 'center',
+  },
+  overviewValue: {
+    color: '#163042',
+    fontSize: fontScale(18),
+    fontWeight: '900',
+  },
+  overviewLabel: {
+    marginTop: spaceScale(4),
+    color: '#6F8794',
+    fontSize: fontScale(11),
+    fontWeight: '700',
+  },
+  rewardButton: {
+    marginTop: spaceScale(18),
+  },
+  rewardText: {
     marginTop: spaceScale(10),
-    color: colors.textMuted,
+    color: '#6F8794',
     fontSize: fontScale(12),
     lineHeight: fontScale(18),
-    fontWeight: '600',
   },
   playButton: {
-    marginTop: spaceScale(28),
+    marginTop: spaceScale(26),
   },
   homeButton: {
     alignItems: 'center',
@@ -676,39 +552,8 @@ const styles = StyleSheet.create({
     marginTop: spaceScale(8),
   },
   homeText: {
-    color: '#F4F7FF',
+    color: '#F8FBFF',
     fontSize: fontScale(15),
-    fontWeight: '600',
-  },
-  bubbleOne: {
-    position: 'absolute',
-    top: -48,
-    right: -42,
-    width: 160,
-    height: 160,
-    borderRadius: 160,
-    backgroundColor: 'rgba(84,150,255,0.10)',
-  },
-  bubbleTwo: {
-    position: 'absolute',
-    top: 190,
-    left: -26,
-    width: 64,
-    height: 64,
-    borderRadius: 64,
-    backgroundColor: 'rgba(255,214,102,0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-  },
-  bubbleThree: {
-    position: 'absolute',
-    bottom: 160,
-    right: '18%',
-    width: 24,
-    height: 24,
-    borderRadius: 24,
-    backgroundColor: 'rgba(84,150,255,0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(84,150,255,0.14)',
+    fontWeight: '700',
   },
 });

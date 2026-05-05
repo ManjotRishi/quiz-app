@@ -4,6 +4,9 @@ D:/QUIZZ/quiz-app/android/app/.cxx/Debug/3d674c31/x86/CMakeFiles/rebuild_cache.d
 D:/QUIZZ/quiz-app/android/app/.cxx/Debug/3d674c31/x86/RNCNetInfoSpec_autolinked_build/CMakeFiles/react_codegen_RNCNetInfoSpec.dir
 D:/QUIZZ/quiz-app/android/app/.cxx/Debug/3d674c31/x86/RNCNetInfoSpec_autolinked_build/CMakeFiles/edit_cache.dir
 D:/QUIZZ/quiz-app/android/app/.cxx/Debug/3d674c31/x86/RNCNetInfoSpec_autolinked_build/CMakeFiles/rebuild_cache.dir
+D:/QUIZZ/quiz-app/android/app/.cxx/Debug/3d674c31/x86/FileAccessSpec_autolinked_build/CMakeFiles/react_codegen_FileAccessSpec.dir
+D:/QUIZZ/quiz-app/android/app/.cxx/Debug/3d674c31/x86/FileAccessSpec_autolinked_build/CMakeFiles/edit_cache.dir
+D:/QUIZZ/quiz-app/android/app/.cxx/Debug/3d674c31/x86/FileAccessSpec_autolinked_build/CMakeFiles/rebuild_cache.dir
 D:/QUIZZ/quiz-app/android/app/.cxx/Debug/3d674c31/x86/rngesturehandler_codegen_autolinked_build/CMakeFiles/react_codegen_rngesturehandler_codegen.dir
 D:/QUIZZ/quiz-app/android/app/.cxx/Debug/3d674c31/x86/rngesturehandler_codegen_autolinked_build/CMakeFiles/edit_cache.dir
 D:/QUIZZ/quiz-app/android/app/.cxx/Debug/3d674c31/x86/rngesturehandler_codegen_autolinked_build/CMakeFiles/rebuild_cache.dir
@@ -25,6 +28,9 @@ D:/QUIZZ/quiz-app/android/app/.cxx/Debug/3d674c31/x86/safeareacontext_autolinked
 D:/QUIZZ/quiz-app/android/app/.cxx/Debug/3d674c31/x86/rnscreens_autolinked_build/CMakeFiles/react_codegen_rnscreens.dir
 D:/QUIZZ/quiz-app/android/app/.cxx/Debug/3d674c31/x86/rnscreens_autolinked_build/CMakeFiles/edit_cache.dir
 D:/QUIZZ/quiz-app/android/app/.cxx/Debug/3d674c31/x86/rnscreens_autolinked_build/CMakeFiles/rebuild_cache.dir
+D:/QUIZZ/quiz-app/android/app/.cxx/Debug/3d674c31/x86/RNShareSpec_autolinked_build/CMakeFiles/react_codegen_RNShareSpec.dir
+D:/QUIZZ/quiz-app/android/app/.cxx/Debug/3d674c31/x86/RNShareSpec_autolinked_build/CMakeFiles/edit_cache.dir
+D:/QUIZZ/quiz-app/android/app/.cxx/Debug/3d674c31/x86/RNShareSpec_autolinked_build/CMakeFiles/rebuild_cache.dir
 D:/QUIZZ/quiz-app/android/app/.cxx/Debug/3d674c31/x86/RNSoundSpec_autolinked_build/CMakeFiles/react_codegen_RNSoundSpec.dir
 D:/QUIZZ/quiz-app/android/app/.cxx/Debug/3d674c31/x86/RNSoundSpec_autolinked_build/CMakeFiles/edit_cache.dir
 D:/QUIZZ/quiz-app/android/app/.cxx/Debug/3d674c31/x86/RNSoundSpec_autolinked_build/CMakeFiles/rebuild_cache.dir

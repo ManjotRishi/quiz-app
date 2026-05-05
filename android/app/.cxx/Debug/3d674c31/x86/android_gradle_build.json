@@ -1,6 +1,7 @@
 {
   "buildFiles": [
     "D:\\QUIZZ\\quiz-app\\node_modules\\@react-native-community\\netinfo\\android\\build\\generated\\source\\codegen\\jni\\CMakeLists.txt",
+    "D:\\QUIZZ\\quiz-app\\node_modules\\react-native-file-access\\android\\build\\generated\\source\\codegen\\jni\\CMakeLists.txt",
     "D:\\QUIZZ\\quiz-app\\node_modules\\react-native-gesture-handler\\android\\build\\generated\\source\\codegen\\jni\\CMakeLists.txt",
     "D:\\QUIZZ\\quiz-app\\node_modules\\react-native-google-mobile-ads\\android\\build\\generated\\source\\codegen\\jni\\CMakeLists.txt",
     "D:\\QUIZZ\\quiz-app\\node_modules\\react-native-nitro-modules\\android\\build\\generated\\source\\codegen\\jni\\CMakeLists.txt",
@@ -8,6 +9,7 @@
     "D:\\QUIZZ\\quiz-app\\node_modules\\react-native-reanimated\\android\\build\\generated\\source\\codegen\\jni\\CMakeLists.txt",
     "D:\\QUIZZ\\quiz-app\\node_modules\\react-native-safe-area-context\\android\\src\\main\\jni\\CMakeLists.txt",
     "D:\\QUIZZ\\quiz-app\\node_modules\\react-native-screens\\android\\src\\main\\jni\\CMakeLists.txt",
+    "D:\\QUIZZ\\quiz-app\\node_modules\\react-native-share\\android\\build\\generated\\source\\codegen\\jni\\CMakeLists.txt",
     "D:\\QUIZZ\\quiz-app\\node_modules\\react-native-sound\\android\\build\\generated\\source\\codegen\\jni\\CMakeLists.txt",
     "D:\\QUIZZ\\quiz-app\\node_modules\\react-native-svg\\android\\src\\main\\jni\\CMakeLists.txt",
     "D:\\QUIZZ\\quiz-app\\node_modules\\react-native-worklets\\android\\build\\generated\\source\\codegen\\jni\\CMakeLists.txt",
@@ -42,6 +44,11 @@
         "C:\\Users\\Laptop\\.gradle\\caches\\8.13\\transforms\\a8cfc1ef5817bece686a6e0fea4cf0a6\\transformed\\react-android-0.84.1-debug\\prefab\\modules\\reactnative\\libs\\android.x86\\libreactnative.so"
       ]
     },
+    "react_codegen_FileAccessSpec::@8c55e23841969ffc7a1c": {
+      "toolchain": "toolchain",
+      "abi": "x86",
+      "artifactName": "react_codegen_FileAccessSpec"
+    },
     "react_codegen_NitroModulesSpec::@472a82f9c57d3d3b8644": {
       "toolchain": "toolchain",
       "abi": "x86",
@@ -61,6 +68,11 @@
       "toolchain": "toolchain",
       "abi": "x86",
       "artifactName": "react_codegen_RNPermissionsSpec"
+    },
+    "react_codegen_RNShareSpec::@e6c4c2b5aedb2ea213b7": {
+      "toolchain": "toolchain",
+      "abi": "x86",
+      "artifactName": "react_codegen_RNShareSpec"
     },
     "react_codegen_RNSoundSpec::@a7dfabff99aa762d23e8": {
       "toolchain": "toolchain",

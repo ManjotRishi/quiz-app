@@ -11,15 +11,17 @@ import {
 import { useIsFocused } from '@react-navigation/native';
 import { useNetInfo } from '@react-native-community/netinfo';
 import { INITIAL_TIME, correctMessages, wrongMessages, COLLECTION_NAME, GKCOLLECTION, LISTINGDOC } from '../util/constants';
+import { QUIZ_AD_MILESTONES } from '../util/adMobConfig';
 import { useCountdown } from './useCountdown';
 import { useTickingSound } from './useTickingSound';
+import { useAdManager } from './useAdManager';
 import { calculateAccuracy } from '../util/functions';
 import { getAvailableLanguage, getLanguageQuestions } from '../util/language';
+import { getQuizAdMilestone } from '../util/adHelpers';
 import { getRandomMessage, getTimeProgressColors, resolveCorrectOption } from '../util/quizHelpers';
-import { recordQuizResult } from '../util/quizStats';
+import { syncQuizProgress } from '../util/quizStats';
 import { loadWithTimeout } from '../util/loadWithTimeout';
 import { ROUTES } from '../navigation/routes';
-import { useInterstitialAd } from './useInterstitialAd';
 import {
   buildFeedbackSpeech,
   buildQuestionSpeech,
@@ -29,14 +31,17 @@ import {
 } from '../audioManager/quizTts';
 
 const CLOCK_SPEED_MULTIPLIER = 1.75;
-const LOAD_TIMEOUT_MS = 15000;
+const LOAD_TIMEOUT_MS = 30000;
 const FEEDBACK_AUTO_NEXT_DELAY_MS = 3200;
+const NOTIFICATION_BOOTSTRAP_TIMEOUT_MS = 4000;
 
 export const useQuizBoard = ({
   navigation,
   collectionName = GKCOLLECTION,
   quizType = 'gk',
   quizLabel = 'GK',
+  quizBreakMilestones = QUIZ_AD_MILESTONES,
+  quizBreakAdType = 'random',
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState(null);
@@ -54,15 +59,15 @@ export const useQuizBoard = ({
   const [isSoundMuted, setIsSoundMuted] = useState(false);
   const [isVoiceMuted, setIsVoiceMuted] = useState(false);
   const [showTimeOver, setShowTimeOver] = useState(false);
-  const [quizStarted, setQuizStarted] = useState(false);
+  const [quizStarted, setQuizStarted] = useState(true);
   const isFocused = useIsFocused();
   const netInfo = useNetInfo();
   const timeOverHandledRef = useRef(false);
   const autoNextTimerRef = useRef(null);
   const lastSpokenQuestionRef = useRef('');
-  const lastInterstitialQuestionRef = useRef(0);
-
-  const { prepareAdv, startAdv } = useInterstitialAd();
+  const sessionIdRef = useRef(`${quizType}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`);
+  const lastQuizBreakMilestoneRef = useRef(0);
+  const { showRandomQuizBreakAd, showRewarded } = useAdManager();
 
   const shakeX = useSharedValue(0);
   const showCross = useSharedValue(0);
@@ -84,6 +89,14 @@ export const useQuizBoard = ({
       withTiming(0.82, { duration: 320 })
     );
   }, [thumbsOpacity, thumbsScale]);
+
+  const toError = useCallback((error, fallbackMessage) => {
+    if (error instanceof Error) {
+      return error;
+    }
+
+    return new Error(fallbackMessage ?? 'Something went wrong. Please try again.');
+  }, []);
 
   const getTodayQuiz = useCallback(async () => {
     const docSnap = await firestore().collection(collectionName).doc(LISTINGDOC).get();
@@ -137,13 +150,13 @@ export const useQuizBoard = ({
       setQuizTitle(todayQuiz?.title ?? '');
     } catch (error) {
       console.error('Failed to load today quiz:', error);
-      setQuizError(error);
+      setQuizError(toError(error, 'Unable to load the quiz right now.'));
       setQuizData([]);
       setQuizTitle('');
     } finally {
       setQuizLoading(false);
     }
-  }, [getTodayQuiz, netInfo.isConnected, netInfo.isInternetReachable]);
+  }, [getTodayQuiz, netInfo.isConnected, netInfo.isInternetReachable, toError]);
 
   useEffect(() => {
     if (netInfo.isConnected === false || netInfo.isInternetReachable === false) {
@@ -157,11 +170,27 @@ export const useQuizBoard = ({
 
     const init = async () => {
       try {
-        await messaging().requestPermission();
-        const token = await messaging().getToken();
+        await Promise.race([
+          messaging().requestPermission(),
+          new Promise((_, reject) =>
+            setTimeout(
+              () => reject(new Error('Notification permission timed out.')),
+              NOTIFICATION_BOOTSTRAP_TIMEOUT_MS
+            )
+          ),
+        ]);
+        const token = await Promise.race([
+          messaging().getToken(),
+          new Promise((_, reject) =>
+            setTimeout(
+              () => reject(new Error('Notification token request timed out.')),
+              NOTIFICATION_BOOTSTRAP_TIMEOUT_MS
+            )
+          ),
+        ]);
 
-        if (token) {
-          await firestore().collection(COLLECTION_NAME).doc('token').set({
+        if (isActive && token) {
+          await firestore().collection(COLLECTION_NAME).doc(token).set({
             token,
             platform: Platform.OS,
             updatedAt: new Date(),
@@ -173,25 +202,56 @@ export const useQuizBoard = ({
     };
 
     const bootstrap = async () => {
-      await init();
-      await requestNotificationPermission();
-      await loadQuiz();
+      try {
+        await loadQuiz();
+
+        if (!isActive) {
+          return;
+        }
+
+        requestNotificationPermission().catch((error) => {
+          console.warn('Notification permission request failed:', error);
+        });
+
+        init().catch((error) => {
+          console.warn('Quiz notification bootstrap failed:', error);
+        });
+      } catch (error) {
+        console.warn('Quiz bootstrap failed:', error);
+      }
     };
 
-    bootstrap();
-
-    const unsubscribe = messaging().onTokenRefresh(async (token) => {
-      if (!isActive) return;
-
-      await firestore().collection(COLLECTION_NAME).doc(token).set({
-        token,
-        updatedAt: new Date(),
-      });
+    bootstrap().catch((error) => {
+      console.warn('Quiz bootstrap start failed:', error);
     });
+
+    let unsubscribe = () => {};
+
+    try {
+      unsubscribe = messaging().onTokenRefresh(async (token) => {
+        if (!isActive || !token) return;
+
+        try {
+          await firestore().collection(COLLECTION_NAME).doc(token).set({
+            token,
+            platform: Platform.OS,
+            updatedAt: new Date(),
+          });
+        } catch (error) {
+          console.warn('Failed to refresh quiz messaging token:', error);
+        }
+      });
+    } catch (error) {
+      console.warn('Failed to subscribe to token refresh:', error);
+    }
 
     return () => {
       isActive = false;
-      unsubscribe();
+      try {
+        unsubscribe?.();
+      } catch (error) {
+        console.warn('Failed to unsubscribe token refresh listener:', error);
+      }
     };
   }, [loadQuiz, requestNotificationPermission]);
 
@@ -296,14 +356,6 @@ export const useQuizBoard = ({
   const correctOption = resolveCorrectOption(question);
   const isLastQuestion = currentIndex === totalQuestions - 1;
 
-  useEffect(() => {
-    if (quizLoading || !totalQuestions) {
-      return;
-    }
-
-    prepareAdv();
-  }, [prepareAdv, quizLoading, totalQuestions]);
-
   const finishQuiz = useCallback(
     ({
       finalCorrectCount,
@@ -312,10 +364,14 @@ export const useQuizBoard = ({
       finalTimeTakenSeconds,
     }) => {
       const accuracy = calculateAccuracy(finalCorrectCount, totalQuestions);
-      recordQuizResult({
+      syncQuizProgress({
+        sessionId: sessionIdRef.current,
         quizType,
+        totalQuestions,
         correctAnswers: finalCorrectCount,
         wrongAnswers: finalWrongCount,
+        notAttemptedAnswers: finalNotAttemptedCount,
+        isComplete: true,
       });
       navigation.replace(ROUTES.Score, {
         quizType,
@@ -326,9 +382,10 @@ export const useQuizBoard = ({
         notAttemptedAnswers: finalNotAttemptedCount,
         timeTakenSeconds: finalTimeTakenSeconds,
         accuracy,
+        fromQuizFlow: true,
       });
     },
-    [navigation, totalQuestions]
+    [navigation, quizLabel, quizType, totalQuestions]
   );
 
   const { seconds } = useCountdown({
@@ -401,7 +458,6 @@ export const useQuizBoard = ({
     });
 
     lastSpokenQuestionRef.current = '';
-    lastInterstitialQuestionRef.current = 0;
     const targetQuestions = getLanguageQuestions(quizData, language);
     const targetTotal = targetQuestions?.length ?? 0;
     const nextIndex = targetTotal > 0 ? Math.min(currentIndex, targetTotal - 1) : 0;
@@ -432,8 +488,7 @@ export const useQuizBoard = ({
     const nextWrongCount = wrongCount + (hasSelection && !currentCorrect ? 1 : 0);
     const nextNotAttemptedCount = notAttemptedCount + (hasSelection ? 0 : 1);
     const nextTimeSpentSeconds = timeSpentSeconds + spentSeconds;
-    const completedQuestionNumber = currentIndex + 1;
-    const shouldShowInterstitial = completedQuestionNumber % 5 === 0;
+    const nextAttemptedQuestions = nextCorrectCount + nextWrongCount;
     const onQuizFinish = () => {
       finishQuiz({
         finalCorrectCount: nextCorrectCount,
@@ -443,35 +498,67 @@ export const useQuizBoard = ({
       });
     };
 
+    syncQuizProgress({
+      sessionId: sessionIdRef.current,
+      quizType,
+      totalQuestions,
+      correctAnswers: nextCorrectCount,
+      wrongAnswers: nextWrongCount,
+      notAttemptedAnswers: nextNotAttemptedCount,
+    });
+
     setCorrectCount(nextCorrectCount);
     setWrongCount(nextWrongCount);
     setNotAttemptedCount(nextNotAttemptedCount);
     setTimeSpentSeconds(nextTimeSpentSeconds);
 
-    if (isLastQuestion) {
-      if (shouldShowInterstitial && lastInterstitialQuestionRef.current !== completedQuestionNumber) {
-        lastInterstitialQuestionRef.current = completedQuestionNumber;
-        const didShowInterstitial = startAdv({
-          placementKey: `${quizType}-question-break`,
-          cooldownMs: 0,
-          onClosed: onQuizFinish,
-        });
+    const milestone = getQuizAdMilestone(nextAttemptedQuestions, quizBreakMilestones);
 
-        if (didShowInterstitial) {
-          return;
+    if (milestone > 0) {
+      let didShow = false;
+      let shownMilestone = 0;
+
+      if (milestone !== lastQuizBreakMilestoneRef.current) {
+        if (quizBreakAdType === 'rewarded') {
+          didShow = showRewarded({
+            placement: `${quizType}_quiz_break_rewarded_${milestone}`,
+            attemptedQuestions: milestone,
+            force: true,
+            onClosed: () => {
+              if (isLastQuestion) {
+                onQuizFinish();
+              }
+            },
+          });
+          shownMilestone = didShow ? milestone : 0;
+        } else {
+          const randomBreakAd = showRandomQuizBreakAd({
+            attemptedQuestions: milestone,
+            lastShownMilestone: lastQuizBreakMilestoneRef.current,
+            onClosed: () => {
+              if (isLastQuestion) {
+                onQuizFinish();
+              }
+            },
+          });
+
+          didShow = randomBreakAd.didShow;
+          shownMilestone = randomBreakAd.milestone;
         }
       }
 
-      onQuizFinish();
-      return;
+      if (didShow && shownMilestone) {
+        lastQuizBreakMilestoneRef.current = shownMilestone;
+      }
+
+      if (isLastQuestion && didShow) {
+        return;
+      }
     }
 
-    if (shouldShowInterstitial && lastInterstitialQuestionRef.current !== completedQuestionNumber) {
-      lastInterstitialQuestionRef.current = completedQuestionNumber;
-      startAdv({
-        placementKey: `${quizType}-question-break`,
-        cooldownMs: 0,
-      });
+    if (isLastQuestion) {
+      onQuizFinish();
+      return;
     }
 
     setCurrentIndex((prev) => prev + 1);
@@ -494,7 +581,37 @@ export const useQuizBoard = ({
     thumbsScale,
     timeSpentSeconds,
     wrongCount,
+    quizBreakAdType,
+    quizBreakMilestones,
+    quizType,
+    showRewarded,
+    showRandomQuizBreakAd,
   ]);
+
+  const handlePrevious = useCallback(() => {
+    if (autoNextTimerRef.current) {
+      clearTimeout(autoNextTimerRef.current);
+      autoNextTimerRef.current = null;
+    }
+
+    resetQuizVoice().catch((error) => {
+      console.warn('Failed to stop quiz voice before moving to previous question:', error);
+    });
+
+    if (currentIndex <= 0) {
+      return;
+    }
+
+    setCurrentIndex((prev) => Math.max(prev - 1, 0));
+    setSelectedOption(null);
+    setCurrentCorrect(false);
+    setFeedbackMessage(null);
+    showCross.value = 0;
+    thumbsOpacity.value = 0;
+    thumbsScale.value = 0.4;
+    timeOverHandledRef.current = false;
+    setShowTimeOver(false);
+  }, [currentIndex, showCross, thumbsOpacity, thumbsScale]);
 
   const handleSelect = useCallback(
     (option) => {
@@ -521,7 +638,9 @@ export const useQuizBoard = ({
           appLanguage: selectedLanguage,
         });
 
-        speakQuizText(spokenFeedback, { interrupt: true, appLanguage: selectedLanguage });
+        speakQuizText(spokenFeedback, { interrupt: true, appLanguage: selectedLanguage }).catch((error) => {
+          console.warn('Failed to speak quiz feedback:', error);
+        });
       }
 
       if (isCorrect) {
@@ -588,6 +707,8 @@ export const useQuizBoard = ({
     loadQuiz();
   }, [loadQuiz]);
 
+  const attemptedQuestions = correctCount + wrongCount + (selectedOption ? 1 : 0);
+
   return {
     currentIndex,
     selectedOption,
@@ -605,6 +726,7 @@ export const useQuizBoard = ({
     isOffline,
     isSoundMuted,
     isVoiceMuted,
+    attemptedQuestions,
     showTimeOver,
     quizStarted,
     totalQuestions,
@@ -622,10 +744,10 @@ export const useQuizBoard = ({
     handleLanguageChange,
     handleSelect,
     handleNext,
+    handlePrevious,
     handleStartQuiz,
     setIsSoundMuted,
     setIsVoiceMuted,
     requestRetry,
-    prepareAdv,
   };
 };

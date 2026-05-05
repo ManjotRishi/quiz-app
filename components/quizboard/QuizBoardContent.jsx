@@ -1,30 +1,33 @@
-import React, { useState } from 'react';
-import { ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback } from 'react';
+import { ScrollView, StatusBar, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated from 'react-native-reanimated';
-import Advertisement from '../Advertisement';
-import QuizRemotePad from '../QuizRemotePad';
+import BottomBanner from '../BottomBanner';
 import TimeOverOverlay from '../TimeOverOverlay';
-import StartQuizOverlay from '../StartQuizOverlay';
-import { CurrentAffairsIcon, HomeIcon, SpeakerIcon, VoiceIcon } from '../icons';
-import LanguageSwitcher from '../LanguageSwitcher';
+import { EnglishShortcutIcon, HomeIcon } from '../icons';
 import { INITIAL_TIME } from '../../util/constants';
+import { useAdManager } from '../../hooks/useAdManager';
+import { useFavouriteQuestion } from '../../hooks/useFavouriteQuestion';
 import { colors } from '../../style/colors';
+import { spaceScale } from '../../style/responsive';
 import { ROUTES } from '../../navigation/routes';
+import { resetToHomeScreen } from '../../util/navigation';
 import { quizBoardStyles as styles } from './styles';
+import { getQuizBoardLayout } from './layout';
 import QuizBoardQuestionCard from './QuizBoardQuestionCard';
+import { exportQuestionTextFile } from '../../util/questionExport';
 
 const QuizBoardContent = ({
   navigation,
   currentIndex,
   selectedOption,
   currentCorrect,
+  attemptedQuestions,
   feedbackMessage,
   selectedLanguage,
   isSoundMuted,
   isVoiceMuted,
-  quizStarted,
   quizTitle,
   question,
   totalQuestions,
@@ -38,26 +41,73 @@ const QuizBoardContent = ({
   handleLanguageChange,
   handleSelect,
   handleNext,
-  handleStartQuiz,
+  handlePrevious,
   setIsSoundMuted,
   setIsVoiceMuted,
   showTimeOver,
   showLanguageSection = true,
   showEnglishPill = true,
-  showCompactEnglishButton = true,
-  showEnglishTutorialButton = true,
-  compactControls = false,
   showBanner = false,
   welcomeTitle = 'Welcome to GK Quiz',
+  questionPanelColors,
+  questionTextColor,
+  panelTitleColor,
+  questionCounterColor,
+  reverseQuestionMetaRow,
 }) => {
+  const { width, height } = useWindowDimensions();
+  const layout = getQuizBoardLayout(width, height);
   const progressWidth = `${totalQuestions ? (seconds / INITIAL_TIME) * 100 : 0}%`;
-  const [showControls, setShowControls] = useState(false);
+  const { showInterstitial } = useAdManager();
+
+  const favouritePayload = useCallback(() => {
+    if (!question?.question) {
+      return null;
+    }
+
+    return {
+      quizTitle: quizTitle || welcomeTitle,
+      source: 'quiz-board',
+      questionText: question.question,
+      answerText: correctOption ?? question?.answer ?? '',
+      options: question?.options ?? [],
+      questionNumber: currentIndex + 1,
+      totalQuestions,
+    };
+  }, [correctOption, currentIndex, question, quizTitle, totalQuestions, welcomeTitle]);
+
+  const { isFavourite, isSavingFavourite, handleSaveFavourite } = useFavouriteQuestion({
+    getPayload: favouritePayload,
+  });
+
+  const handleExitNavigation = (action) => {
+    const didShow = showInterstitial({
+      placement: 'quiz_exit',
+      attemptedQuestions,
+      onClosed: action,
+    });
+
+    if (!didShow) {
+      action();
+    }
+  };
+
+  const handleDownload = useCallback(() => {
+    exportQuestionTextFile({
+      quizTitle: quizTitle || welcomeTitle,
+      questionNumber: currentIndex + 1,
+      totalQuestions,
+      questionText: question?.question ?? '',
+      options: question?.options ?? [],
+      correctAnswer: correctOption ?? question?.answer ?? '',
+    });
+  }, [correctOption, currentIndex, question?.answer, question?.options, question?.question, quizTitle, totalQuestions, welcomeTitle]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor={colors.background} translucent={false} />
       <LinearGradient
-        colors={['#04020A', '#1A0B33', '#250D4A', '#09102A']}
+        colors={[colors.background, colors.panelDark, colors.surfaceLavenderSoft, '#0A1F2B']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.screenGradient}
@@ -72,154 +122,152 @@ const QuizBoardContent = ({
           </View>
         </Animated.View>
 
-        {showBanner ? (
-          <View style={styles.bannerWrap}>
-            <Advertisement banner containerStyle={styles.banner} />
-          </View>
-        ) : null}
-
-        <View style={styles.fixedTopSection}>
+        <View
+          style={[
+            styles.fixedTopSection,
+            {
+              paddingHorizontal: layout.contentHorizontalPadding,
+              paddingTop: layout.sectionTopPadding,
+              maxWidth: layout.contentMaxWidth + layout.contentHorizontalPadding * 2,
+              alignSelf: 'center',
+              width: '100%',
+            },
+          ]}
+        >
           <View style={styles.topBar}>
-            {compactControls ? (
-              <>
-                <View style={styles.compactControlsWrap}>
-                  <View style={styles.compactLauncherRow}>
-                    <TouchableOpacity
-                      activeOpacity={0.86}
-                      onPress={() => setShowControls((prev) => !prev)}
-                      style={styles.compactControlsButtonHit}
-                    >
-                      <LinearGradient
-                        colors={
-                          showControls
-                            ? ['#8B5CF6', '#60A5FA']
-                            : ['rgba(19,25,54,0.96)', 'rgba(37,99,235,0.90)']
-                        }
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.compactControlsButton}
-                      >
-                        <Text style={styles.compactControlsButtonText}>{showControls ? '×' : '☰'}</Text>
-                      </LinearGradient>
-                    </TouchableOpacity>
-
-                    <View style={styles.compactScreenActions}>
-                      {showCompactEnglishButton ? (
-                        <TouchableOpacity
-                          activeOpacity={0.88}
-                          onPress={() => navigation.navigate(ROUTES.EnglishQuizz)}
-                          style={styles.compactEnglishHit}
-                        >
-                          <LinearGradient
-                            colors={['rgba(19,25,54,0.96)', 'rgba(139,92,246,0.88)', 'rgba(244,114,182,0.82)']}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 1 }}
-                            style={styles.compactEnglishButton}
-                          >
-                            <Text style={styles.compactEnglishText}>English Quizz</Text>
-                          </LinearGradient>
-                        </TouchableOpacity>
-                      ) : null}
-
-                      <TouchableOpacity activeOpacity={0.88} onPress={handleNext} style={styles.compactNextHit}>
-                        <LinearGradient
-                          colors={['#F97316', '#FB7185', '#7C3AED']}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 1 }}
-                          style={styles.compactNextButton}
-                        >
-                          <Text style={styles.compactNextText}>{isLastQuestion ? 'Submit' : 'Next'}</Text>
-                        </LinearGradient>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-
-                  {showControls ? (
-                    <View style={styles.compactControlsPanel}>
-                      <QuizRemotePad
-                        singleRow
-                        top={{
-                          onPress: () => setIsSoundMuted?.((prev) => !prev),
-                          children: <SpeakerIcon muted={isSoundMuted} color="#F4F7FF" size={20} />,
-                        }}
-                        extra={{
-                          onPress: () => setIsVoiceMuted?.((prev) => !prev),
-                          label: '',
-                          children: <VoiceIcon muted={isVoiceMuted} color="#F4F7FF" size={45} />,
-                        }}
-                        center={{
-                          onPress: () => navigation.navigate(ROUTES.Home),
-                          children: <HomeIcon color="#F4F7FF" size={20} />,
-                        }}
-                        right={{
-                          onPress: () => navigation.navigate(ROUTES.TrickeyQuestions),
-                          children: <Text style={styles.remoteEmoji}>💡</Text>,
-                        }}
-                        bottom={{
-                          onPress: () => navigation.navigate(ROUTES.GkBoard),
-                          children: <CurrentAffairsIcon color="#F4F7FF" size={18} />,
-                        }}
-                      />
-                    </View>
-                  ) : null}
-                </View>
-              </>
-            ) : (
-              <QuizRemotePad
-                top={{
-                  onPress: () => setIsSoundMuted?.((prev) => !prev),
-                  children: <SpeakerIcon muted={isSoundMuted} color="#F4F7FF" size={20} />,
-                }}
-                extra={{
-                  onPress: () => setIsVoiceMuted?.((prev) => !prev),
-                  label: '',
-                  children: <VoiceIcon muted={isVoiceMuted} color="#F4F7FF" size={45} />,
-                }}
-                center={{
-                  onPress: () => navigation.navigate(ROUTES.Home),
-                  children: <HomeIcon color="#F4F7FF" size={20} />,
-                }}
-                right={{
-                  onPress: () => navigation.navigate(ROUTES.TrickeyQuestions),
-                  children: <Text style={styles.remoteEmoji}>💡</Text>,
-                }}
-                bottom={{
-                  onPress: () => navigation.navigate(ROUTES.GkBoard),
-                  children: <CurrentAffairsIcon color="#F4F7FF" size={18} />,
-                }}
-              />
-            )}
-          </View>
-
-          {showLanguageSection ? (
-            <View style={styles.languageActionRow}>
-              {showEnglishPill ? (
+            <View style={[styles.compactControlsWrap, { maxWidth: layout.contentMaxWidth, alignSelf: 'center' }]}>
+              <View style={[styles.compactLauncherRow, { gap: layout.screenActionGap }]}>
                 <TouchableOpacity
                   activeOpacity={0.88}
-                  onPress={() => navigation.navigate(ROUTES.EnglishQuizz)}
-                  style={styles.englishPillHit}
+                  onPress={() => handleExitNavigation(() => resetToHomeScreen(navigation, { name: ROUTES.Home }))}
+                  style={[styles.navHomeHit, { width: layout.navButtonSize }]}
                 >
                   <LinearGradient
-                    colors={['rgba(19,25,54,0.96)', 'rgba(139,92,246,0.88)', 'rgba(244,114,182,0.82)']}
+                    colors={['rgba(13,34,50,0.96)', 'rgba(20,54,77,0.92)']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
-                    style={styles.englishPill}
+                    style={[
+                      styles.navHomeButton,
+                      {
+                        width: layout.navButtonSize,
+                        height: layout.navButtonSize,
+                        borderRadius: layout.navButtonSize / 2,
+                      },
+                    ]}
                   >
-                    <View style={styles.englishPillGlow} />
-                    <Text style={styles.englishPillText}>English Quizz</Text>
+                    <HomeIcon color="#F8FBFF" size={layout.navIconSize} />
                   </LinearGradient>
                 </TouchableOpacity>
-              ) : null}
 
-              <View style={styles.languageSection}>
-                <LanguageSwitcher value={selectedLanguage} onChange={handleLanguageChange} />
+                <View style={[styles.compactScreenActions, { gap: layout.screenActionGap }]}>
+                  <TouchableOpacity activeOpacity={0.88} onPress={handlePrevious} style={styles.compactPrevHit}>
+                    <LinearGradient
+                      colors={['rgba(13,34,50,0.96)', 'rgba(56,189,248,0.84)']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={[
+                        styles.compactPrevButton,
+                        {
+                          minHeight: layout.topButtonHeight,
+                          borderRadius: layout.topButtonRadius,
+                          paddingHorizontal: layout.isVeryNarrow ? 8 : 10,
+                        },
+                      ]}
+                    >
+                      <Text
+                        allowFontScaling={false}
+                        adjustsFontSizeToFit
+                        minimumFontScale={0.85}
+                        numberOfLines={1}
+                        style={[styles.compactPrevText, { fontSize: layout.topButtonTextSize }]}
+                      >
+                        Previous
+                      </Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity activeOpacity={0.88} onPress={handleNext} style={styles.compactNextHit}>
+                    <LinearGradient
+                      colors={[colors.gradientStart, colors.accentGold, colors.gradientEnd]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={[
+                        styles.compactNextButton,
+                        {
+                          minHeight: layout.topButtonHeight,
+                          borderRadius: layout.topButtonRadius,
+                          paddingHorizontal: layout.isVeryNarrow ? 8 : 10,
+                        },
+                      ]}
+                    >
+                      <Text
+                        allowFontScaling={false}
+                        adjustsFontSizeToFit
+                        minimumFontScale={0.85}
+                        numberOfLines={1}
+                        style={[styles.compactNextText, { fontSize: layout.topButtonTextSize }]}
+                      >
+                        {isLastQuestion ? 'Submit' : 'Next'}
+                      </Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </View>
               </View>
+            </View>
+          </View>
 
+          {showEnglishPill ? (
+            <View style={[styles.languageActionRow, { marginTop: layout.sectionGap + 4, maxWidth: layout.contentMaxWidth, alignSelf: 'center' }]}>
+              <TouchableOpacity
+                activeOpacity={0.88}
+                onPress={() => resetToHomeScreen(navigation, { name: ROUTES.EnglishQuizz })}
+                style={styles.englishPillHit}
+              >
+                <LinearGradient
+                  colors={['rgba(13,34,50,0.96)', 'rgba(20,184,166,0.90)', 'rgba(251,146,60,0.84)']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={[
+                    styles.englishPill,
+                    {
+                      minWidth: layout.isVeryNarrow ? 104 : 112,
+                      paddingHorizontal: layout.isVeryNarrow ? 12 : 14,
+                      paddingVertical: layout.isVeryNarrow ? 8 : 10,
+                    },
+                  ]}
+                >
+                  <View style={styles.englishPillGlow} />
+                  <View style={[styles.shortcutRow, { gap: layout.sectionGap }]}>
+                    <View style={styles.shortcutIconWrap}>
+                      <EnglishShortcutIcon size={layout.isVeryNarrow ? 20 : 22} />
+                    </View>
+                    <Text
+                      allowFontScaling={false}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.9}
+                      numberOfLines={1}
+                      style={[styles.englishPillText, { fontSize: layout.isVeryNarrow ? 9 : 10 }]}
+                    >
+                      English Quiz
+                    </Text>
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
             </View>
           ) : null}
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[
+            styles.scrollContent,
+            {
+              paddingHorizontal: layout.contentHorizontalPadding,
+              paddingTop: layout.sectionGap + 8,
+              paddingBottom: spaceScale(40),
+            },
+          ]}
+        >
           <QuizBoardQuestionCard
             currentIndex={currentIndex}
             quizTitle={quizTitle}
@@ -235,18 +283,28 @@ const QuizBoardContent = ({
             shakeStyle={shakeStyle}
             crossStyle={crossStyle}
             handleSelect={handleSelect}
+            handleDownload={handleDownload}
+            handleFavourite={handleSaveFavourite}
+            handleSoundToggle={() => setIsSoundMuted?.((prev) => !prev)}
+            handleVoiceToggle={() => setIsVoiceMuted?.((prev) => !prev)}
+            isFavourite={isFavourite}
+            isFavouriteLoading={isSavingFavourite}
+            isSoundMuted={isSoundMuted}
+            isVoiceMuted={isVoiceMuted}
+            questionPanelColors={questionPanelColors}
+            questionTextColor={questionTextColor}
+            panelTitleColor={panelTitleColor}
+            questionCounterColor={questionCounterColor}
+            reverseQuestionMetaRow={reverseQuestionMetaRow}
+            showLanguageSection={showLanguageSection}
+            selectedLanguage={selectedLanguage}
+            handleLanguageChange={handleLanguageChange}
+            layout={layout}
           />
         </ScrollView>
 
+        {showBanner ? <BottomBanner /> : null}
         <TimeOverOverlay visible={showTimeOver} label="Time Over" />
-        <StartQuizOverlay
-          visible={!quizStarted}
-          title={welcomeTitle}
-          subtitle="Choose your mode to begin. Kids opens the child quiz experience, and Adults starts the GK board."
-          onStart={handleStartQuiz}
-          onSelectChild={() => navigation.navigate(ROUTES.ChildQuizz)}
-          onSelectAdult={handleStartQuiz}
-        />
       </LinearGradient>
     </SafeAreaView>
   );

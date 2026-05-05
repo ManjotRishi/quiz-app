@@ -2,10 +2,12 @@ import { Platform } from 'react-native';
 import Tts from 'react-native-tts';
 
 const DEFAULT_LANGUAGE = 'en-US';
-const DEFAULT_RATE = 0.52;
-const DEFAULT_PITCH = 0.9;
-const MALE_PITCH = 0.82;
+const DEFAULT_RATE = 0.45;
+const DEFAULT_PITCH = 1.0;
+const MALE_PITCH = 0.9;
 const DEFAULT_APP_LANGUAGE = 'English';
+const GOOGLE_TTS_ENGINE = 'com.google.android.tts';
+const ANDROID_SPEAK_RETRY_DELAY_MS = 180;
 const LANGUAGE_CANDIDATES = {
   English: ['en-IN', 'en-US', 'en-GB'],
   Hindi: ['hi-IN', 'hi'],
@@ -34,6 +36,14 @@ let isConfigured = false;
 let activeVoiceCode = DEFAULT_LANGUAGE;
 let activeAppLanguage = DEFAULT_APP_LANGUAGE;
 let activeVoiceId = null;
+let activeEngine = null;
+let activePitch = MALE_PITCH;
+let lastSpeakPromise = Promise.resolve();
+
+const wait = (durationMs) =>
+  new Promise((resolve) => {
+    setTimeout(resolve, durationMs);
+  });
 
 const cleanText = (value) =>
   String(value ?? '')
@@ -78,12 +88,16 @@ const resolveVoiceScore = (voice, normalizedLanguage) => {
   const blob = `${voice?.id ?? ''} ${voice?.name ?? ''}`.toLowerCase();
   let score = 0;
 
-  if (!voice?.networkConnectionRequired) {
+  if (voice?.quality && Number(voice.quality) >= 300) {
+    score += 40;
+  }
+
+  if (voice?.quality && Number(voice.quality) >= 500) {
     score += 20;
   }
 
-  if (voice?.quality && Number(voice.quality) >= 300) {
-    score += 8;
+  if (!voice?.networkConnectionRequired) {
+    score += 14;
   }
 
   if (MALE_KEYWORDS.some((word) => blob.includes(word))) {
@@ -113,6 +127,39 @@ const matchesLanguage = (voice, languageCode) => {
   const targetBase = target.split('-')[0];
 
   return voiceLang === target || voiceLang.startsWith(`${targetBase}-`) || voiceLang === targetBase;
+};
+
+const preferGoogleTtsEngine = async () => {
+  if (Platform.OS !== 'android') {
+    return true;
+  }
+
+  if (activeEngine === GOOGLE_TTS_ENGINE) {
+    return true;
+  }
+
+  try {
+    if (typeof Tts.setDefaultEngine !== 'function') {
+      return false;
+    }
+
+    const didSetGoogleEngine = await Tts.setDefaultEngine(GOOGLE_TTS_ENGINE);
+
+  if (didSetGoogleEngine) {
+    activeEngine = GOOGLE_TTS_ENGINE;
+    activeVoiceId = null;
+    activeVoiceCode = DEFAULT_LANGUAGE;
+    activeAppLanguage = DEFAULT_APP_LANGUAGE;
+    activePitch = MALE_PITCH;
+    return true;
+  }
+
+    console.warn('[quizTts] Could not switch to Google TTS engine. Using the current Android TTS engine.');
+    return false;
+  } catch (error) {
+    console.warn('[quizTts] setDefaultEngine is not supported or failed. Using the current Android TTS engine.', error);
+    return false;
+  }
 };
 
 const setPreferredVoice = async (normalizedLanguage, languageCode) => {
@@ -154,8 +201,9 @@ const setPreferredVoice = async (normalizedLanguage, languageCode) => {
   const result = await safelyInvoke(() => Tts.setDefaultVoice(bestVoice.id), `setDefaultVoice:${bestVoice.id}`);
 
   if (result !== null) {
-    activeVoiceId = bestVoice.id;
+    activeVoiceId = bestVoice?.id;
     const targetPitch = isMaleLikeVoice(bestVoice) ? MALE_PITCH : DEFAULT_PITCH;
+    activePitch = targetPitch;
     await safelyInvoke(() => Tts.setDefaultPitch(targetPitch), `setDefaultPitch:${targetPitch}`);
     return true;
   }
@@ -205,15 +253,23 @@ const configureTts = async () => {
     return false;
   }
 
-  await setVoiceLanguage(DEFAULT_APP_LANGUAGE, { force: true });
-
   await safelyInvoke(() => Tts.setDefaultRate(DEFAULT_RATE), 'setDefaultRate');
-  await safelyInvoke(() => Tts.setDefaultPitch(DEFAULT_PITCH), 'setDefaultPitch');
-  await safelyInvoke(() => Tts.setDucking(true), 'setDucking');
+  activePitch = MALE_PITCH;
+  await safelyInvoke(() => Tts.setDefaultPitch(activePitch), `setDefaultPitch:${activePitch}`);
+  if (Platform.OS === 'android') {
+    // Ducking can trigger audio focus failures on some Android devices when short app sounds
+    // and TTS overlap. Keeping it off makes speech more reliable for quiz playback.
+    await safelyInvoke(() => Tts.setDucking(false), 'setDucking:false');
+  } else {
+    await safelyInvoke(() => Tts.setDucking(true), 'setDucking:true');
+  }
 
   if (Platform.OS === 'ios') {
     await safelyInvoke(() => Tts.setIgnoreSilentSwitch('ignore'), 'setIgnoreSilentSwitch');
   }
+
+  await preferGoogleTtsEngine();
+  await setVoiceLanguage(DEFAULT_APP_LANGUAGE, { force: true });
 
   isConfigured = true;
   return true;
@@ -243,14 +299,20 @@ export const stopQuizVoice = async () => {
 };
 
 export const speakQuizText = async (text, options = {}) => {
-  const { interrupt = true, appLanguage = DEFAULT_APP_LANGUAGE } = options;
+  const {
+    interrupt = true,
+    appLanguage = DEFAULT_APP_LANGUAGE,
+    rate,
+    pitch,
+    volume,
+  } = options;
   const message = cleanText(text);
 
   if (!message) {
     return false;
   }
 
-  try {
+  const runSpeak = async () => {
     const ready = await ensureQuizVoiceReady(appLanguage);
 
     if (!ready) {
@@ -258,12 +320,60 @@ export const speakQuizText = async (text, options = {}) => {
       return false;
     }
 
-    if (interrupt) {
+    const shouldInterrupt = Platform.OS === 'android' ? true : interrupt;
+
+    if (shouldInterrupt) {
       await stopQuizVoice();
+
+      if (Platform.OS === 'android') {
+        await wait(ANDROID_SPEAK_RETRY_DELAY_MS);
+      }
     }
 
-    Tts.speak(message);
-    return true;
+    const speechOptions = {};
+
+    if (typeof rate === 'number') {
+      speechOptions.rate = rate;
+    }
+
+    speechOptions.pitch = typeof pitch === 'number' ? pitch : activePitch;
+
+    if (typeof volume === 'number') {
+      speechOptions.androidParams = {
+        KEY_PARAM_VOLUME: volume,
+        KEY_PARAM_STREAM: 'STREAM_MUSIC',
+      };
+    }
+
+    if (Platform.OS === 'ios' && activeVoiceId) {
+      speechOptions.iosVoiceId = activeVoiceId;
+    }
+
+    try {
+      Tts.speak(message, speechOptions);
+      return true;
+    } catch (error) {
+      const errorText = String(error?.message ?? error ?? '').toLowerCase();
+      const looksLikeAudioFocusIssue =
+        Platform.OS === 'android' &&
+        (errorText.includes('audio focus') || errorText.includes('request audio focus'));
+
+      if (!looksLikeAudioFocusIssue) {
+        throw error;
+      }
+
+      console.warn('[quizTts] Android audio focus request failed. Retrying with a clean TTS session.', error);
+      await stopQuizVoice();
+      await wait(ANDROID_SPEAK_RETRY_DELAY_MS);
+      Tts.speak(message, speechOptions);
+      return true;
+    }
+  };
+
+  try {
+    const speakTask = lastSpeakPromise.catch(() => undefined).then(runSpeak);
+    lastSpeakPromise = speakTask.catch(() => undefined);
+    return await speakTask;
   } catch (error) {
     console.warn('[quizTts] speak failed:', error);
     return false;

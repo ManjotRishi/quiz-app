@@ -2,7 +2,14 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 
-const RemoteButton = ({ label, onPress, children, size = 42, active = true }) => (
+const RemoteButton = ({
+  label,
+  onPress,
+  children,
+  size = 42,
+  active = true,
+  colors = ['rgba(139,92,246,0.98)', 'rgba(37,99,235,0.96)'],
+}) => (
   <TouchableOpacity
     activeOpacity={0.85}
     onPress={onPress}
@@ -10,10 +17,18 @@ const RemoteButton = ({ label, onPress, children, size = 42, active = true }) =>
     style={[styles.buttonHit, { width: size, height: size }]}
   >
     <LinearGradient
-      colors={['rgba(139,92,246,0.98)', 'rgba(37,99,235,0.96)']}
+      colors={colors}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
-      style={[styles.button, { width: size, height: size, borderRadius: size / 2 }]}
+      style={[
+        styles.button,
+        {
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          shadowColor: colors?.[0] ?? '#8B5CF6',
+        },
+      ]}
     >
       {children ?? <Text style={styles.fallbackText}>{label}</Text>}
     </LinearGradient>
@@ -216,7 +231,6 @@ const styles = StyleSheet.create({
   button: {
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#8B5CF6',
     shadowOpacity: 0.18,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 3 },

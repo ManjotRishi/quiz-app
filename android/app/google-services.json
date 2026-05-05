@@ -7,9 +7,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:442286355568:android:4b0ac478ec6d0a84c3f0b5",
+        "mobilesdk_app_id": "1:442286355568:android:c9a784d1c37ad529c3f0b5",
         "android_client_info": {
-          "package_name": "com.dailyquizz"
+          "package_name": "com.dailyquizzapp"
         }
       },
       "oauth_client": [],

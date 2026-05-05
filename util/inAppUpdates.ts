@@ -30,7 +30,11 @@ const handleStatusUpdate = ({ status }: StatusUpdateEvent) => {
       {
         text: 'Restart',
         onPress: () => {
-          inAppUpdates.installUpdate();
+          try {
+            inAppUpdates.installUpdate();
+          } catch (error) {
+            console.warn('Failed to install downloaded update:', error);
+          }
         },
       },
     ],
@@ -43,8 +47,12 @@ const attachStatusListener = () => {
     return;
   }
 
-  inAppUpdates.addStatusUpdateListener(handleStatusUpdate);
-  isStatusListenerAttached = true;
+  try {
+    inAppUpdates.addStatusUpdateListener(handleStatusUpdate);
+    isStatusListenerAttached = true;
+  } catch (error) {
+    console.warn('Failed to attach in-app update listener:', error);
+  }
 };
 
 export const detachInAppUpdateListeners = () => {
@@ -52,8 +60,13 @@ export const detachInAppUpdateListeners = () => {
     return;
   }
 
-  inAppUpdates.removeStatusUpdateListener(handleStatusUpdate);
-  isStatusListenerAttached = false;
+  try {
+    inAppUpdates.removeStatusUpdateListener(handleStatusUpdate);
+  } catch (error) {
+    console.warn('Failed to detach in-app update listener:', error);
+  } finally {
+    isStatusListenerAttached = false;
+  }
 };
 
 export const checkForAppUpdate = async () => {
@@ -68,13 +81,13 @@ export const checkForAppUpdate = async () => {
     const updateInfo =
       (await inAppUpdates.checkNeedsUpdate()) as AndroidNeedsUpdateResponse;
 
-    if (!updateInfo.shouldUpdate) {
+    if (!updateInfo?.shouldUpdate) {
       return;
     }
 
-    const updateType = updateInfo.other.isFlexibleUpdateAllowed
+    const updateType = updateInfo?.other?.isFlexibleUpdateAllowed
       ? IAUUpdateKind.FLEXIBLE
-      : updateInfo.other.isImmediateUpdateAllowed
+      : updateInfo?.other?.isImmediateUpdateAllowed
         ? IAUUpdateKind.IMMEDIATE
         : null;
 
@@ -91,23 +104,27 @@ export const checkForAppUpdate = async () => {
 };
 
 export const showDebugUpdatePreview = () => {
-  Alert.alert(
-    'Update available',
-    'A newer app version is available on the Play Store. Update now to preview the in-app update prompt flow.',
-    [
-      {
-        text: 'Later',
-        style: 'cancel',
-      },
-      {
-        text: 'Update',
-        onPress: () => {
-          Alert.alert(
-            'Preview only',
-            'This is a local test prompt. The real Play Store update dialog will appear after you upload builds to Google Play testing.',
-          );
+  try {
+    Alert.alert(
+      'Update available',
+      'A newer app version is available on the Play Store. Update now to preview the in-app update prompt flow.',
+      [
+        {
+          text: 'Later',
+          style: 'cancel',
         },
-      },
-    ],
-  );
+        {
+          text: 'Update',
+          onPress: () => {
+            Alert.alert(
+              'Preview only',
+              'This is a local test prompt. The real Play Store update dialog will appear after you upload builds to Google Play testing.',
+            );
+          },
+        },
+      ],
+    );
+  } catch (error) {
+    console.warn('Failed to show update preview alert:', error);
+  }
 };

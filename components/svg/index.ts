@@ -4,3 +4,5 @@ export { default as ChildQuizPlaygroundIllustration } from './ChildQuizPlaygroun
 export { default as ChildQuizDinoIllustration } from './ChildQuizDinoIllustration';
 export { default as ChildQuizBunnyIllustration } from './ChildQuizBunnyIllustration';
 export { default as ChildQuizRobotIllustration } from './ChildQuizRobotIllustration';
+export { default as ChildStoryIllustration } from './ChildStoryIllustration';
+export { default as ChildPoemIllustration } from './ChildPoemIllustration';
